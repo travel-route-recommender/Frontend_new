@@ -10,14 +10,27 @@ export function formatTripDateRange(startDate: string, endDate: string) {
 }
 
 export function formatTripStatus(status: TripStatus) {
+  if (status === "planning") return "여행 계획 중";
   if (status === "drafting") return "일정 초안 작성 중";
   if (status === "confirmed") return "일정 확정";
   return "여행 완료";
 }
 
+export function isValidISODate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
 export function formatDayLabel(date: string, tripStartDate: string) {
   const start = new Date(`${tripStartDate}T00:00:00`).getTime();
   const target = new Date(`${date}T00:00:00`).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(target)) return "날짜 미정";
   const dayIndex = Math.round((target - start) / 86_400_000) + 1;
   return `Day ${Math.max(dayIndex, 1)}`;
 }

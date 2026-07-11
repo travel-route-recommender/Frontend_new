@@ -1,8 +1,11 @@
 import type { EntityId, ISODateString } from "./user";
 
-export type TripStatus = "drafting" | "confirmed" | "completed";
+export type TripStatus = "planning" | "drafting" | "confirmed" | "completed";
 export type TripMemberRole = "owner" | "member";
 export type PreferenceResponseStatus = "pending" | "completed";
+export type TripTransport = "public" | "car" | "walking";
+export type TripBudgetLevel = "budget" | "standard" | "premium";
+export type TripIntensity = "relaxed" | "balanced" | "packed";
 
 export type TripMember = {
   userId: EntityId;
@@ -17,6 +20,9 @@ export type TripRoom = {
   startDate: ISODateString;
   endDate: ISODateString;
   status: TripStatus;
+  transport: TripTransport;
+  budgetLevel: TripBudgetLevel;
+  intensity: TripIntensity;
   members: TripMember[];
 };
 

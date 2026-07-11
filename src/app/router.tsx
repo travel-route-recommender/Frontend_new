@@ -2,13 +2,13 @@ import { Route, Routes } from "react-router-dom";
 import { DuriExploreListPage } from "../components/DuriExploreListPage";
 import { DuriExploreMapPage } from "../components/DuriExploreMapPage";
 import { DuriHomePage } from "../components/DuriHomePage";
+import { NewTripPage } from "../components/NewTripPage";
+import { TripRoomHomePage } from "../components/TripRoomHomePage";
 import { AppShell } from "./AppShell";
 import {
   DuriPage,
   MyPage,
-  NewTripPlaceholderPage,
   SavedPage,
-  TripDetailPlaceholderPage,
   TripsPage,
   TripWorkspaceRoute,
 } from "../pages/MainTabPages";
@@ -24,8 +24,8 @@ export function AppRoutes() {
         <Route path="explore/map" element={<DuriExploreMapPage />} />
         <Route path="places/:placeId" element={<PlaceDetailRoute />} />
         <Route path="trips" element={<TripsPage />} />
-        <Route path="trips/new" element={<NewTripPlaceholderPage />} />
-        <Route path="trips/:tripId" element={<TripDetailPlaceholderPage />} />
+        <Route path="trips/new" element={<NewTripPage />} />
+        <Route path="trips/:tripId" element={<TripRoomHomePage />} />
         <Route path="duri" element={<DuriPage />} />
         <Route path="saved" element={<SavedPage />} />
         <Route path="mypage" element={<MyPage />} />

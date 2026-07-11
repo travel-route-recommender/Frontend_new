@@ -166,6 +166,9 @@ export function createDemoData(): DuriDomainState {
     startDate: "2026-07-18",
     endDate: "2026-07-19",
     status: "drafting",
+    transport: "public",
+    budgetLevel: "standard",
+    intensity: "balanced",
     members: [
       { userId: "user-soomin", role: "owner", preferenceStatus: "completed" },
       { userId: "user-jiyoon", role: "member", preferenceStatus: "completed" },

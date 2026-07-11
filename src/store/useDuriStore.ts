@@ -1,7 +1,16 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { EntityId, ItineraryItem } from "../domain";
+import type {
+  EntityId,
+  ItineraryItem,
+  TripBudgetLevel,
+  TripIntensity,
+  TripRoom,
+  TripTransport,
+} from "../domain";
 import { createDemoData, type DuriDomainState } from "../mocks/demoData";
+import { isValidISODate } from "../utils/formatters";
+import { createUniqueEntityId } from "../utils/ids";
 
 export type AddPlaceToItineraryInput = {
   tripId: EntityId;
@@ -12,7 +21,19 @@ export type AddPlaceToItineraryInput = {
   preferredByUserIds?: EntityId[];
 };
 
+export type CreateTripInput = {
+  title?: string;
+  regionId: EntityId;
+  startDate: string;
+  endDate: string;
+  transport: TripTransport;
+  budgetLevel: TripBudgetLevel;
+  intensity: TripIntensity;
+  invitedUserIds: EntityId[];
+};
+
 type DuriActions = {
+  createTrip: (input: CreateTripInput) => EntityId;
   setActiveTrip: (tripId: EntityId) => void;
   toggleSavedPlace: (placeId: EntityId, userId?: EntityId) => void;
   addCandidatePlace: (tripId: EntityId, placeId: EntityId, addedByUserId?: EntityId) => void;
@@ -43,6 +64,52 @@ export const useDuriStore = create<DuriState>()(
   persist(
     (set) => ({
       ...createDemoData(),
+      createTrip: (input) => {
+        let createdTripId: EntityId = "";
+
+        set((state) => {
+          const region = state.regionsById[input.regionId];
+          const currentUser = state.usersById[state.currentUserId];
+          const hasValidDates =
+            isValidISODate(input.startDate) &&
+            isValidISODate(input.endDate) &&
+            input.endDate >= input.startDate;
+
+          if (!region || !currentUser || !hasValidDates) return state;
+
+          createdTripId = createUniqueEntityId("trip", Object.keys(state.tripsById));
+          const invitedUserIds = [...new Set(input.invitedUserIds)].filter(
+            (userId) => userId !== state.currentUserId && Boolean(state.usersById[userId]),
+          );
+          const memberUserIds = [state.currentUserId, ...invitedUserIds];
+          const trip: TripRoom = {
+            id: createdTripId,
+            title: input.title?.trim() || `${region.name} 여행`,
+            regionId: region.id,
+            startDate: input.startDate,
+            endDate: input.endDate,
+            status: "planning",
+            transport: input.transport,
+            budgetLevel: input.budgetLevel,
+            intensity: input.intensity,
+            members: memberUserIds.map((userId, index) => ({
+              userId,
+              role: index === 0 ? "owner" : "member",
+              preferenceStatus: state.preferenceResultsByUserId[userId] ? "completed" : "pending",
+            })),
+          };
+
+          return {
+            activeTripId: trip.id,
+            tripsById: { ...state.tripsById, [trip.id]: trip },
+            tripOrder: [...state.tripOrder, trip.id],
+            candidatesByTripId: { ...state.candidatesByTripId, [trip.id]: [] },
+            itineraryByTripId: { ...state.itineraryByTripId, [trip.id]: [] },
+          };
+        });
+
+        return createdTripId;
+      },
       setActiveTrip: (tripId) =>
         set((state) => (state.tripsById[tripId] ? { activeTripId: tripId } : state)),
       toggleSavedPlace: (placeId, userId) =>
