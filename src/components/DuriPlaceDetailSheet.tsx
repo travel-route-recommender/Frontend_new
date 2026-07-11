@@ -1,0 +1,90 @@
+import { Clock, Heart, MapPin, Plus, Star, X } from "lucide-react";
+import type { ReactNode } from "react";
+import type { TravelPlace } from "../data/travelPages";
+
+type DuriPlaceDetailSheetProps = {
+  place: TravelPlace | null;
+  onClose: () => void;
+};
+
+export function DuriPlaceDetailSheet({ place, onClose }: DuriPlaceDetailSheetProps) {
+  if (!place) return null;
+
+  return (
+    <div className="absolute inset-x-3 bottom-3 z-50 overflow-hidden rounded-[32px] bg-white shadow-[0_22px_44px_rgba(36,60,143,0.28)]">
+      <div className="mx-auto mt-3 h-1.5 w-12 rounded-full bg-[#D8E6F8]" />
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute right-4 top-4 z-10 grid h-9 w-9 place-items-center rounded-full bg-white/92 text-[#243C8F]"
+        aria-label="닫기"
+      >
+        <X size={19} />
+      </button>
+
+      <div
+        className="mt-3 h-[150px] bg-cover bg-center"
+        style={{
+          backgroundImage: `linear-gradient(180deg, rgba(20,39,95,0.08), rgba(20,39,95,0.34)), url(${place.imageUrl})`,
+        }}
+      />
+
+      <div className="px-5 pb-5 pt-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {place.tags.slice(0, 3).map((tag) => (
+                <span key={tag} className="rounded-full bg-[#EAF3FF] px-3 py-1.5 text-[11px] font-black text-[#4388FF]">
+                  {tag}
+                </span>
+              ))}
+            </div>
+            <h2 className="truncate text-[24px] font-black text-[#243C8F]">{place.name}</h2>
+            <p className="mt-1 flex items-center gap-1.5 text-[13px] font-bold text-[#88A8D8]">
+              <MapPin size={15} />
+              {place.address}
+            </p>
+          </div>
+          <span className="flex flex-none items-center gap-1 rounded-full bg-[#FFF8DD] px-3 py-2 text-[13px] font-black text-[#243C8F]">
+            <Star size={14} className="fill-[#FFD84D] text-[#FFD84D]" />
+            {place.rating.toFixed(1)}
+          </span>
+        </div>
+
+        <p className="mt-4 text-[14px] font-bold leading-6 text-[#6F8AC2]">{place.summary}</p>
+
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <InfoBox icon={<Clock size={17} />} label="추천 시간" value={place.category === "카페" ? "오후 2시" : "오후 5시"} />
+          <InfoBox icon={<Heart size={17} />} label="담은 사람" value={place.addedBy} />
+        </div>
+
+        <div className="mt-5 grid grid-cols-[1fr_1.3fr] gap-3">
+          <button
+            type="button"
+            className="flex h-[52px] items-center justify-center gap-2 rounded-[18px] bg-[#F1F6FF] px-3 py-4 text-[14px] font-black text-[#4388FF]"
+          >
+            <Heart size={18} className={place.saved ? "fill-[#4388FF]" : ""} />
+            저장
+          </button>
+          <button
+            type="button"
+            className="flex h-[52px] items-center justify-center gap-2 rounded-[18px] bg-[#4388FF] px-3 py-4 text-[14px] font-black text-white shadow-[0_12px_22px_rgba(67,136,255,0.28)]"
+          >
+            <Plus size={18} />
+            여행방에 추가
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InfoBox({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="rounded-[18px] bg-[#F5F9FF] px-3 py-3">
+      <div className="mb-2 flex items-center gap-1.5 text-[#4388FF]">{icon}</div>
+      <p className="text-[11px] font-black text-[#9CB7DD]">{label}</p>
+      <p className="mt-0.5 truncate text-[13px] font-black text-[#243C8F]">{value}</p>
+    </div>
+  );
+}
