@@ -1,9 +1,13 @@
 import { ArrowLeft, Crosshair, List, LocateFixed, MapPin, Minus, Plus, Search, SlidersHorizontal, Star } from "lucide-react";
+import { useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { mapPins, travelPlaces } from "../data/travelPages";
+import { mapPins } from "../data/travelPages";
+import { useDuriStore } from "../store/useDuriStore";
 
 export function DuriExploreMapPage() {
   const navigate = useNavigate();
+  const placesById = useDuriStore((state) => state.placesById);
+  const travelPlaces = useMemo(() => Object.values(placesById), [placesById]);
 
   return (
     <div className="relative -mt-1 h-[calc(100vh-76px)] min-h-[704px] overflow-hidden bg-[#EAF2FC]">
@@ -54,7 +58,7 @@ export function DuriExploreMapPage() {
       <div className="absolute left-[39%] top-[42%] h-[155px] w-[120px] rounded-full border-[5px] border-[#6C57FF]/35 border-l-transparent border-t-transparent" />
 
       {mapPins.map((pin, index) => {
-        const place = travelPlaces.find((item) => item.id === pin.placeId);
+        const place = placesById[pin.placeId];
         if (!place) return null;
 
         return (

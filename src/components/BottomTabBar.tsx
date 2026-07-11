@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 
-type BottomTab = {
+export type BottomTab = {
   label: string;
   icon: LucideIcon;
   active?: boolean;

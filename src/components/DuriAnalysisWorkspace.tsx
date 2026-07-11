@@ -1,13 +1,8 @@
 import { AlertTriangle, ArrowRight, BarChart3, Lightbulb, RotateCcw } from "lucide-react";
+import type { TripAnalysis } from "../domain";
 
 type DuriAnalysisWorkspaceProps = {
-  report: {
-    matchRate: number;
-    commonPreferences: string[];
-    needsTune: string[];
-    routeWarning: string;
-    unplannedCandidate: string;
-  };
+  report: TripAnalysis;
   mode?: "compact" | "full";
 };
 
@@ -37,7 +32,7 @@ export function DuriAnalysisWorkspace({ report, mode = "compact" }: DuriAnalysis
 
         <div className="mt-4 space-y-2">
           <AnalysisNotice icon={AlertTriangle} text={report.routeWarning} />
-          <AnalysisNotice icon={Lightbulb} text={report.unplannedCandidate} />
+          <AnalysisNotice icon={Lightbulb} text={report.unplannedCandidateMessage} />
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-2">

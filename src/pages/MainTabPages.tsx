@@ -1,23 +1,58 @@
+import { useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { DuriWorkspaceScreen } from "../components/DuriWorkspaceScreen";
 import { SimpleWorkspacePage } from "../components/SimpleWorkspacePage";
-import { activeTrip } from "../data/travelPages";
+import { selectTripStats } from "../store/selectors";
+import { useDuriStore } from "../store/useDuriStore";
+import { formatDayLabel, formatTripDateRange, formatTripStatus } from "../utils/formatters";
+
+function useActiveTripSummary() {
+  const activeTripId = useDuriStore((state) => state.activeTripId);
+  const trip = useDuriStore((state) => state.tripsById[state.activeTripId]);
+  const candidatesByTripId = useDuriStore((state) => state.candidatesByTripId);
+  const itineraryByTripId = useDuriStore((state) => state.itineraryByTripId);
+  const placesById = useDuriStore((state) => state.placesById);
+  const stats = useMemo(
+    () => selectTripStats({ ...useDuriStore.getState(), candidatesByTripId, itineraryByTripId }, activeTripId),
+    [activeTripId, candidatesByTripId, itineraryByTripId],
+  );
+  const itineraryLines = useMemo(() => {
+    if (!trip) return [];
+    const byDay = new Map<string, string[]>();
+    for (const item of itineraryByTripId[trip.id] ?? []) {
+      if (!item.placeId || !placesById[item.placeId]) continue;
+      const day = formatDayLabel(item.date, trip.startDate);
+      byDay.set(day, [...(byDay.get(day) ?? []), placesById[item.placeId].name]);
+    }
+    return [...byDay.entries()].map(([day, names]) => `${day} ${names.join(" → ")}`);
+  }, [itineraryByTripId, placesById, trip]);
+  return { activeTripId, trip, stats, itineraryLines };
+}
 
 export function TripsPage() {
+  const { trip, stats, itineraryLines } = useActiveTripSummary();
   return (
     <SimpleWorkspacePage
       eyebrow="내 여행방"
-      title={activeTrip.title}
-      description={`${activeTrip.date} · ${activeTrip.status}`}
+      title={trip?.title ?? "진행 중인 여행방이 없어요"}
+      description={trip ? `${formatTripDateRange(trip.startDate, trip.endDate)} · ${formatTripStatus(trip.status)}` : "새 여행방을 만들어 보세요."}
       primaryLabel="장소 탐색하기"
       secondaryLabel="새 여행방 만들기"
       icon="trip"
       primaryTo="/explore"
+      stats={[
+        ["후보 장소", `${stats.candidateCount}개`],
+        ["동행자", `${stats.companionCount}명`],
+        ["성향 진단", `${stats.completedPreferenceCount}/${stats.preferenceTargetCount}`],
+        ["일정 반영", `${stats.scheduledCount}개`],
+      ]}
+      itineraryLines={itineraryLines}
     />
   );
 }
 
 export function DuriPage() {
+  const { activeTripId, stats, itineraryLines } = useActiveTripSummary();
   return (
     <SimpleWorkspacePage
       eyebrow="두리"
@@ -26,45 +61,66 @@ export function DuriPage() {
       primaryLabel="두리 제안 보기"
       secondaryLabel="취향 다시 보기"
       icon="duri"
-      primaryTo="/trips"
+      primaryTo={activeTripId ? `/trips/${activeTripId}/workspace` : "/trips"}
+      stats={[
+        ["후보 장소", `${stats.candidateCount}개`],
+        ["일정 반영", `${stats.scheduledCount}개`],
+        ["미배치", `${stats.unplannedCount}개`],
+        ["성향 진단", `${stats.completedPreferenceCount}/${stats.preferenceTargetCount}`],
+      ]}
+      itineraryLines={itineraryLines}
     />
   );
 }
 
 export function SavedPage() {
+  const savedCount = useDuriStore((state) => state.savedPlaceIdsByUserId[state.currentUserId]?.length ?? 0);
+  const { stats } = useActiveTripSummary();
   return (
     <SimpleWorkspacePage
       eyebrow="내 여행지"
-      title="저장한 장소 6곳"
+      title={`저장한 장소 ${savedCount}곳`}
       description="부산 여행방에 담을 후보를 다시 확인해요."
       primaryLabel="지도에서 보기"
       secondaryLabel="장소 더 찾기"
       icon="saved"
       primaryTo="/explore/map"
+      stats={[
+        ["저장 장소", `${savedCount}개`],
+        ["후보 장소", `${stats.candidateCount}개`],
+        ["일정 반영", `${stats.scheduledCount}개`],
+        ["미배치", `${stats.unplannedCount}개`],
+      ]}
     />
   );
 }
 
 export function MyPage() {
+  const currentUser = useDuriStore((state) => state.usersById[state.currentUserId]);
+  const preference = useDuriStore((state) => state.preferenceResultsByUserId[state.currentUserId]);
   return (
     <SimpleWorkspacePage
       eyebrow="마이페이지"
-      title="수민님의 여행 취향"
-      description="감성산책형 · 카페와 바다 코스를 선호해요."
+      title={`${currentUser?.name ?? "사용자"}님의 여행 취향`}
+      description={`${preference?.profileType ?? "성향 진단 전"} · ${(preference?.traits ?? []).join("와 ")} 코스를 선호해요.`}
       primaryLabel="테스트 다시 보기"
       secondaryLabel="프로필 편집"
       icon="profile"
       primaryTo="/duri"
+      stats={[]}
     />
   );
 }
 
 export function TripWorkspaceRoute() {
   const { tripId } = useParams();
-
-  return (
-    <div data-trip-id={tripId ?? "unknown"}>
-      <DuriWorkspaceScreen />
-    </div>
-  );
+  const tripExists = useDuriStore((state) => Boolean(tripId && state.tripsById[tripId]));
+  if (!tripId || !tripExists) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-[#D5E6FF] px-6 text-center text-[#243C8F]">
+        <div><p className="text-[13px] font-black text-[#7FADED]">여행방 없음</p><h1 className="mt-2 text-[24px] font-black">여행방을 찾을 수 없어요</h1><p className="mt-2 text-[13px] font-bold text-[#7898CE]">내 여행방에서 다시 선택해 주세요.</p></div>
+      </main>
+    );
+  }
+  return <DuriWorkspaceScreen tripId={tripId} />;
 }

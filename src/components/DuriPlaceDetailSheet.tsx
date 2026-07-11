@@ -1,13 +1,17 @@
 import { Clock, Heart, MapPin, Plus, Star, X } from "lucide-react";
 import type { ReactNode } from "react";
-import type { TravelPlace } from "../data/travelPages";
+import type { Place } from "../domain";
 
 type DuriPlaceDetailSheetProps = {
-  place: TravelPlace | null;
+  place: Place | null;
+  addedByNames: string[];
+  saved: boolean;
   onClose: () => void;
+  onToggleSaved: () => void;
+  onAddToTrip: () => void;
 };
 
-export function DuriPlaceDetailSheet({ place, onClose }: DuriPlaceDetailSheetProps) {
+export function DuriPlaceDetailSheet({ place, addedByNames, saved, onClose, onToggleSaved, onAddToTrip }: DuriPlaceDetailSheetProps) {
   if (!place) return null;
 
   return (
@@ -55,19 +59,21 @@ export function DuriPlaceDetailSheet({ place, onClose }: DuriPlaceDetailSheetPro
 
         <div className="mt-4 grid grid-cols-2 gap-3">
           <InfoBox icon={<Clock size={17} />} label="추천 시간" value={place.category === "카페" ? "오후 2시" : "오후 5시"} />
-          <InfoBox icon={<Heart size={17} />} label="담은 사람" value={place.addedBy} />
+          <InfoBox icon={<Heart size={17} />} label="담은 사람" value={addedByNames.join(", ") || "아직 없음"} />
         </div>
 
         <div className="mt-5 grid grid-cols-[1fr_1.3fr] gap-3">
           <button
             type="button"
+            onClick={onToggleSaved}
             className="flex h-[52px] items-center justify-center gap-2 rounded-[18px] bg-[#F1F6FF] px-3 py-4 text-[14px] font-black text-[#4388FF]"
           >
-            <Heart size={18} className={place.saved ? "fill-[#4388FF]" : ""} />
+            <Heart size={18} className={saved ? "fill-[#4388FF]" : ""} />
             저장
           </button>
           <button
             type="button"
+            onClick={onAddToTrip}
             className="flex h-[52px] items-center justify-center gap-2 rounded-[18px] bg-[#4388FF] px-3 py-4 text-[14px] font-black text-white shadow-[0_12px_22px_rgba(67,136,255,0.28)]"
           >
             <Plus size={18} />

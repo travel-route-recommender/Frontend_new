@@ -9,6 +9,8 @@ type SimpleWorkspacePageProps = {
   secondaryLabel: string;
   icon: "trip" | "duri" | "saved" | "profile";
   primaryTo: string;
+  stats?: Array<[string, string]>;
+  itineraryLines?: string[];
 };
 
 export function SimpleWorkspacePage({
@@ -19,6 +21,8 @@ export function SimpleWorkspacePage({
   secondaryLabel,
   icon,
   primaryTo,
+  stats,
+  itineraryLines,
 }: SimpleWorkspacePageProps) {
   const Icon = icon === "trip" ? Users : icon === "duri" ? Sparkles : icon === "saved" ? MapPinned : Compass;
 
@@ -53,12 +57,7 @@ export function SimpleWorkspacePage({
       </section>
 
       <section className="mt-5 grid grid-cols-2 gap-3">
-        {[
-          ["후보 장소", "8개"],
-          ["동행자", "3명"],
-          ["성향 진단", "2/3"],
-          ["일정 초안", "작성 중"],
-        ].map(([label, value]) => (
+        {(stats ?? []).map(([label, value]) => (
           <div key={label} className="rounded-[22px] bg-white px-4 py-4 shadow-[0_8px_18px_rgba(79,134,247,0.1)]">
             <p className="text-[12px] font-black text-[#9CB7DD]">{label}</p>
             <p className="mt-1 text-[22px] font-black text-[#243C8F]">{value}</p>
@@ -66,17 +65,16 @@ export function SimpleWorkspacePage({
         ))}
       </section>
 
-      <section className="mt-5 rounded-[24px] bg-white p-4 shadow-[0_8px_18px_rgba(79,134,247,0.1)]">
+      {itineraryLines?.length ? <section className="mt-5 rounded-[24px] bg-white p-4 shadow-[0_8px_18px_rgba(79,134,247,0.1)]">
         <div className="flex items-center gap-3">
           <span className="grid h-12 w-12 place-items-center rounded-[18px] bg-[#EAF3FF] text-[#4388FF]">
             <Route size={22} />
           </span>
           <div>
-            <p className="text-[13px] font-black text-[#243C8F]">Day 1 전포카페거리 → 광안리</p>
-            <p className="mt-0.5 text-[12px] font-bold text-[#88A8D8]">Day 2 감천문화마을 → 국제시장</p>
+            {itineraryLines.map((line, index) => <p key={line} className={index === 0 ? "text-[13px] font-black text-[#243C8F]" : "mt-0.5 text-[12px] font-bold text-[#88A8D8]"}>{line}</p>)}
           </div>
         </div>
-      </section>
+      </section> : null}
     </div>
   );
 }

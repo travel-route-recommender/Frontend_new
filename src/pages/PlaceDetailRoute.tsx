@@ -2,7 +2,7 @@ import { X } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { DuriExploreListPage } from "../components/DuriExploreListPage";
 import { DuriPlaceDetailSheet } from "../components/DuriPlaceDetailSheet";
-import { travelPlaces } from "../data/travelPages";
+import { useDuriStore } from "../store/useDuriStore";
 
 type PlaceRouteState = {
   fromDuri?: boolean;
@@ -12,7 +12,15 @@ export function PlaceDetailRoute() {
   const { placeId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const place = travelPlaces.find((item) => item.id === placeId) ?? null;
+  const place = useDuriStore((state) => (placeId ? state.placesById[placeId] : undefined));
+  const activeTripId = useDuriStore((state) => state.activeTripId);
+  const candidate = useDuriStore((state) =>
+    placeId ? state.candidatesByTripId[state.activeTripId]?.find((item) => item.placeId === placeId) : undefined,
+  );
+  const usersById = useDuriStore((state) => state.usersById);
+  const savedPlaceIds = useDuriStore((state) => state.savedPlaceIdsByUserId[state.currentUserId]);
+  const toggleSavedPlace = useDuriStore((state) => state.toggleSavedPlace);
+  const addCandidatePlace = useDuriStore((state) => state.addCandidatePlace);
   const routeState = location.state as PlaceRouteState | null;
 
   const closeSheet = () => {
@@ -27,7 +35,18 @@ export function PlaceDetailRoute() {
   return (
     <>
       <DuriExploreListPage />
-      {place ? <DuriPlaceDetailSheet place={place} onClose={closeSheet} /> : <MissingPlaceSheet onClose={closeSheet} />}
+      {place ? (
+        <DuriPlaceDetailSheet
+          place={place}
+          addedByNames={(candidate?.addedByUserIds ?? []).flatMap((userId) => (usersById[userId] ? [usersById[userId].name] : []))}
+          saved={(savedPlaceIds ?? []).includes(place.id)}
+          onClose={closeSheet}
+          onToggleSaved={() => toggleSavedPlace(place.id)}
+          onAddToTrip={() => addCandidatePlace(activeTripId, place.id)}
+        />
+      ) : (
+        <MissingPlaceSheet onClose={closeSheet} />
+      )}
     </>
   );
 }
