@@ -3,6 +3,9 @@ import type { TripStatus } from "../domain";
 export function formatTripDateRange(startDate: string, endDate: string) {
   const start = new Date(`${startDate}T00:00:00`);
   const end = new Date(`${endDate}T00:00:00`);
+  if (Number.isNaN(start.getTime()) && Number.isNaN(end.getTime())) return "날짜 미정";
+  if (Number.isNaN(start.getTime())) return `${end.getMonth() + 1}.${end.getDate()}`;
+  if (Number.isNaN(end.getTime())) return `${start.getMonth() + 1}.${start.getDate()}`;
   return `${start.getMonth() + 1}.${start.getDate()} - ${end.getMonth() + 1}.${end.getDate()}`;
 }
 

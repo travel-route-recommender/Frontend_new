@@ -3,7 +3,15 @@ import { DuriExploreListPage } from "../components/DuriExploreListPage";
 import { DuriExploreMapPage } from "../components/DuriExploreMapPage";
 import { DuriHomePage } from "../components/DuriHomePage";
 import { AppShell } from "./AppShell";
-import { DuriPage, MyPage, SavedPage, TripsPage, TripWorkspaceRoute } from "../pages/MainTabPages";
+import {
+  DuriPage,
+  MyPage,
+  NewTripPlaceholderPage,
+  SavedPage,
+  TripDetailPlaceholderPage,
+  TripsPage,
+  TripWorkspaceRoute,
+} from "../pages/MainTabPages";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { PlaceDetailRoute } from "../pages/PlaceDetailRoute";
 
@@ -16,6 +24,8 @@ export function AppRoutes() {
         <Route path="explore/map" element={<DuriExploreMapPage />} />
         <Route path="places/:placeId" element={<PlaceDetailRoute />} />
         <Route path="trips" element={<TripsPage />} />
+        <Route path="trips/new" element={<NewTripPlaceholderPage />} />
+        <Route path="trips/:tripId" element={<TripDetailPlaceholderPage />} />
         <Route path="duri" element={<DuriPage />} />
         <Route path="saved" element={<SavedPage />} />
         <Route path="mypage" element={<MyPage />} />

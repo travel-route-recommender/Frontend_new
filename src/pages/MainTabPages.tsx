@@ -1,7 +1,9 @@
+import { ArrowLeft, Construction } from "lucide-react";
 import { useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { DuriWorkspaceScreen } from "../components/DuriWorkspaceScreen";
 import { SimpleWorkspacePage } from "../components/SimpleWorkspacePage";
+import { TripListPage } from "../components/TripListPage";
 import { selectTripStats } from "../store/selectors";
 import { useDuriStore } from "../store/useDuriStore";
 import { formatDayLabel, formatTripDateRange, formatTripStatus } from "../utils/formatters";
@@ -30,24 +32,73 @@ function useActiveTripSummary() {
 }
 
 export function TripsPage() {
-  const { trip, stats, itineraryLines } = useActiveTripSummary();
+  return <TripListPage />;
+}
+
+export function NewTripPlaceholderPage() {
   return (
-    <SimpleWorkspacePage
-      eyebrow="내 여행방"
-      title={trip?.title ?? "진행 중인 여행방이 없어요"}
-      description={trip ? `${formatTripDateRange(trip.startDate, trip.endDate)} · ${formatTripStatus(trip.status)}` : "새 여행방을 만들어 보세요."}
-      primaryLabel="장소 탐색하기"
-      secondaryLabel="새 여행방 만들기"
-      icon="trip"
-      primaryTo="/explore"
-      stats={[
-        ["후보 장소", `${stats.candidateCount}개`],
-        ["동행자", `${stats.companionCount}명`],
-        ["성향 진단", `${stats.completedPreferenceCount}/${stats.preferenceTargetCount}`],
-        ["일정 반영", `${stats.scheduledCount}개`],
-      ]}
-      itineraryLines={itineraryLines}
+    <TripRoutePlaceholder
+      eyebrow="새 여행방"
+      title="여행방 만들기를 준비하고 있어요"
+      description="생성 단계는 다음 작업에서 연결할 예정이에요."
     />
+  );
+}
+
+export function TripDetailPlaceholderPage() {
+  const { tripId } = useParams();
+  const trip = useDuriStore((state) => (tripId ? state.tripsById[tripId] : undefined));
+
+  if (!trip) {
+    return (
+      <TripRoutePlaceholder
+        eyebrow="여행방 없음"
+        title="여행방을 찾을 수 없어요"
+        description="내 여행방 목록에서 다시 선택해 주세요."
+      />
+    );
+  }
+
+  return (
+    <TripRoutePlaceholder
+      eyebrow="여행방 홈"
+      title={trip.title || "이름 없는 여행방"}
+      description={`${formatTripDateRange(trip.startDate, trip.endDate)} · 여행방 홈은 다음 작업에서 연결할 예정이에요.`}
+      workspaceTo={`/trips/${trip.id}/workspace`}
+    />
+  );
+}
+
+function TripRoutePlaceholder({
+  eyebrow,
+  title,
+  description,
+  workspaceTo,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  workspaceTo?: string;
+}) {
+  return (
+    <div className="px-5 pb-32 pt-8">
+      <section className="rounded-[30px] bg-white px-5 py-7 text-center shadow-[0_12px_26px_rgba(79,134,247,0.12)]">
+        <span className="mx-auto grid h-16 w-16 place-items-center rounded-[22px] bg-[#EAF3FF] text-[#4388FF]">
+          <Construction size={27} />
+        </span>
+        <p className="mt-5 text-[12px] font-black text-[#7FADED]">{eyebrow}</p>
+        <h1 className="mt-1 text-[23px] font-black leading-tight text-[#243C8F]">{title}</h1>
+        <p className="mt-3 text-[13px] font-bold leading-6 text-[#7898CE]">{description}</p>
+        {workspaceTo ? (
+          <Link to={workspaceTo} className="mt-5 flex h-12 items-center justify-center rounded-[18px] bg-[#4388FF] text-[14px] font-black text-white">
+            워크스페이스 열기
+          </Link>
+        ) : null}
+        <Link to="/trips" className="mt-3 flex h-12 items-center justify-center gap-2 rounded-[18px] bg-[#F1F6FF] text-[14px] font-black text-[#4388FF]">
+          <ArrowLeft size={17} />내 여행방으로 돌아가기
+        </Link>
+      </section>
+    </div>
   );
 }
 
