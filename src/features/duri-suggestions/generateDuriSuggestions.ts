@@ -11,7 +11,7 @@ import {
   sortItineraryItemsByDateAndTime,
   timeStringToMinutes,
 } from "../../utils/schedule";
-import { buildPreviewItinerary } from "./applySuggestion";
+import { applySuggestionChanges } from "./applySuggestion";
 import { buildItineraryFingerprint, generateSuggestionId } from "./fingerprint";
 import type {
   DuriSuggestion,
@@ -75,13 +75,13 @@ function createSuggestion(
   };
   const id = generateSuggestionId(draft);
   if (!draft.canApply) return { ...draft, id };
-  const result = buildPreviewItinerary(input.itinerary, { ...draft, id }, {
+  const result = applySuggestionChanges(input.itinerary, { ...draft, id }, {
     tripId: input.trip.id,
     tripDates: getTripDates(input.trip.startDate, input.trip.endDate),
     placesById: input.placesById,
     candidates: input.candidates,
   });
-  if (result.status === "ready") return { ...draft, id };
+  if (result.success) return { ...draft, id };
   return {
     ...draft,
     id,

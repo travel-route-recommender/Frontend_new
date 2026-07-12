@@ -23,8 +23,10 @@ import type { ItineraryItem } from "../domain";
 import type { AnalysisIssue } from "../features/duri-analysis";
 import {
   buildItineraryFingerprint,
+  createInverseSuggestion,
   generateDuriSuggestions,
 } from "../features/duri-suggestions";
+import type { DuriSuggestion, SuggestionApplyResult } from "../features/duri-suggestions";
 import { selectTripAnalysis } from "../store/selectors";
 import { useDuriStore } from "../store/useDuriStore";
 import type { ItineraryMutationResult } from "../store/useDuriStore";
@@ -65,11 +67,16 @@ export function DuriWorkspaceScreen({ tripId }: { tripId: string }) {
   const [analysisItemIds, setAnalysisItemIds] = useState<string[]>([]);
   const [analysisFocus, setAnalysisFocus] = useState<{ itemId: string; date: string; startTime: string; token: number }>();
   const [suggestionDrawerOpen, setSuggestionDrawerOpen] = useState(false);
+  const [suggestionDrawerVersion, setSuggestionDrawerVersion] = useState(0);
   const [suggestionIssueId, setSuggestionIssueId] = useState<string>();
   const [hiddenSuggestionIds, setHiddenSuggestionIds] = useState<string[]>([]);
+  const [applyingSuggestionId, setApplyingSuggestionId] = useState<string>();
+  const [undoSuggestion, setUndoSuggestion] = useState<DuriSuggestion>();
+  const [undoToastMessage, setUndoToastMessage] = useState<string>();
   const sheetBeforeDrag = useRef<CandidateSheetState>("half");
   const collisionTimer = useRef<number | undefined>(undefined);
   const analysisTimer = useRef<number | undefined>(undefined);
+  const applyingSuggestionRef = useRef(false);
 
   const usersById = useDuriStore((state) => state.usersById);
   const regionsById = useDuriStore((state) => state.regionsById);
@@ -81,13 +88,18 @@ export function DuriWorkspaceScreen({ tripId }: { tripId: string }) {
   const addPlaceToItinerary = useDuriStore((state) => state.addPlaceToItinerary);
   const updateItineraryItem = useDuriStore((state) => state.updateItineraryItem);
   const removeItineraryItem = useDuriStore((state) => state.removeItineraryItem);
+  const applyDuriSuggestion = useDuriStore((state) => state.applyDuriSuggestion);
 
   const tripDates = useMemo(() => (trip ? getTripDates(trip.startDate, trip.endDate) : []), [trip]);
   useEffect(() => {
     if (!tripDates.includes(activeDate)) setActiveDate(tripDates[0] ?? "");
   }, [activeDate, tripDates]);
   useEffect(() => {
-    const timeout = window.setTimeout(() => setToast(""), 3000);
+    const timeout = window.setTimeout(() => {
+      setToast("");
+      setUndoSuggestion(undefined);
+      setUndoToastMessage(undefined);
+    }, 3000);
     return () => window.clearTimeout(timeout);
   }, [toast]);
   useEffect(() => () => {
@@ -350,6 +362,74 @@ export function DuriWorkspaceScreen({ tripId }: { tripId: string }) {
     analysisTimer.current = window.setTimeout(() => setAnalysisItemIds([]), 1800);
   };
 
+  const focusAppliedChanges = (result: SuggestionApplyResult) => {
+    const nextItinerary = useDuriStore.getState().itineraryByTripId[tripId] ?? [];
+    const visibleChangedIds = result.changedItemIds.filter((itemId) => nextItinerary.some((item) => item.id === itemId));
+    const targetItem = nextItinerary.find((item) => visibleChangedIds.includes(item.id));
+    const targetDate = result.affectedDate ?? targetItem?.date;
+    if (targetDate) setActiveDate(targetDate);
+    setAnalysisItemIds(visibleChangedIds);
+    if (targetItem) {
+      setAnalysisFocus({ itemId: targetItem.id, date: targetItem.date, startTime: targetItem.startTime, token: Date.now() });
+    }
+    setActiveTab("schedule");
+    setCandidateSheetState("collapsed");
+    if (analysisTimer.current) window.clearTimeout(analysisTimer.current);
+    analysisTimer.current = window.setTimeout(() => setAnalysisItemIds([]), 2200);
+  };
+
+  const appliedMessage = (suggestion: DuriSuggestion) => {
+    if (suggestion.type === "reorder-route") return "두리의 동선 개선안을 적용했어요.";
+    if (suggestion.type === "insert-meal") return suggestion.title.includes("저녁")
+      ? "저녁 시간을 일정에 추가했어요."
+      : suggestion.title.includes("아침")
+        ? "아침 시간을 일정에 추가했어요."
+        : "점심 시간을 일정에 추가했어요.";
+    if (suggestion.type === "insert-rest" || suggestion.type === "move-item") return "휴식 시간을 확보했어요.";
+    if (suggestion.type === "add-preference-place" || suggestion.type === "replace-place") return "동행자의 선호 장소를 반영했어요.";
+    return "과도한 일정 하나를 시간표에서 제외했어요.";
+  };
+
+  const handleApplySuggestion = (suggestion: DuriSuggestion) => {
+    if (applyingSuggestionRef.current || !suggestion.canApply) return;
+    applyingSuggestionRef.current = true;
+    setApplyingSuggestionId(suggestion.id);
+    setUndoSuggestion(undefined);
+    setUndoToastMessage(undefined);
+    const before = (itinerary ?? []).map((item) => ({ ...item, preferredByUserIds: [...item.preferredByUserIds] }));
+    const result = applyDuriSuggestion(tripId, suggestion);
+
+    if (result.status === "applied") {
+      const after = useDuriStore.getState().itineraryByTripId[tripId] ?? [];
+      const message = appliedMessage(suggestion);
+      setUndoSuggestion(createInverseSuggestion(suggestion, before, after));
+      setUndoToastMessage(message);
+      setSuggestionDrawerOpen(false);
+      focusAppliedChanges(result);
+      setToast(message);
+    } else {
+      setToast(result.message ?? "제안을 적용하지 못했어요.");
+      if (result.status === "stale") setSuggestionDrawerVersion((version) => version + 1);
+    }
+    applyingSuggestionRef.current = false;
+    setApplyingSuggestionId(undefined);
+  };
+
+  const handleUndoSuggestion = () => {
+    if (!undoSuggestion || applyingSuggestionRef.current) return;
+    applyingSuggestionRef.current = true;
+    const result = applyDuriSuggestion(tripId, undoSuggestion);
+    setUndoSuggestion(undefined);
+    setUndoToastMessage(undefined);
+    if (result.status === "applied") {
+      focusAppliedChanges(result);
+      setToast("마지막 제안 적용을 취소했어요.");
+    } else {
+      setToast(result.message ?? "일정이 다시 변경되어 실행 취소할 수 없어요.");
+    }
+    applyingSuggestionRef.current = false;
+  };
+
   return (
     <DragDropProvider
       sensors={(defaults) => [...defaults.filter((sensor) => sensor !== PointerSensor), pointerSensor]}
@@ -395,18 +475,20 @@ export function DuriWorkspaceScreen({ tripId }: { tripId: string }) {
           ) : null}
           {suggestionDrawerOpen ? (
             <DuriSuggestionDrawer
-              key={itineraryFingerprint}
+              key={`${itineraryFingerprint}-${suggestionDrawerVersion}`}
               suggestions={drawerSuggestions}
               itinerary={itinerary ?? []}
               tripDates={tripDates}
               candidates={candidates ?? []}
               placesById={placesById}
               issuesById={analysisIssuesById}
+              applyingSuggestionId={applyingSuggestionId}
+              onApply={handleApplySuggestion}
               onHide={(suggestionId) => setHiddenSuggestionIds((current) => [...current, suggestionId])}
               onClose={() => setSuggestionDrawerOpen(false)}
             />
           ) : null}
-          <ActionToast message={toast} />
+          <ActionToast message={toast} actionLabel={undoSuggestion && toast === undoToastMessage ? "실행 취소" : undefined} onAction={undoSuggestion && toast === undoToastMessage ? handleUndoSuggestion : undefined} />
           <DragOverlay dropAnimation={{ duration: 140, easing: "ease-out" }}>
             {activeDrag ? <div className="rounded-[16px] bg-[#243C8F] px-4 py-3 text-[12px] font-black text-white shadow-xl">{activeDrag.name}<span className="ml-2 text-[#A9D0FF]">시간표에 놓기</span></div> : null}
           </DragOverlay>

@@ -14,6 +14,8 @@ type DuriSuggestionDrawerProps = {
   candidates: TripCandidate[];
   placesById: Record<string, Place>;
   issuesById: Record<string, AnalysisIssue>;
+  applyingSuggestionId?: string;
+  onApply: (suggestion: DuriSuggestion) => void;
   onHide: (suggestionId: string) => void;
   onClose: () => void;
 };
@@ -59,7 +61,7 @@ function ScheduleOrder({ label, items, placesById }: { label: string; items: Iti
   );
 }
 
-function SuggestionPreview({ suggestion, itinerary, tripDates, candidates, placesById, onBack }: { suggestion: DuriSuggestion; itinerary: ItineraryItem[]; tripDates: string[]; candidates: TripCandidate[]; placesById: Record<string, Place>; onBack: () => void }) {
+function SuggestionPreview({ suggestion, itinerary, tripDates, candidates, placesById, isApplying, onBack, onApply }: { suggestion: DuriSuggestion; itinerary: ItineraryItem[]; tripDates: string[]; candidates: TripCandidate[]; placesById: Record<string, Place>; isApplying: boolean; onBack: () => void; onApply: () => void }) {
   const preview = previewSuggestion(itinerary, suggestion, { tripId: suggestion.tripId, tripDates, placesById, candidates });
   const routeDate = suggestion.type === "reorder-route" ? suggestion.changes[0]?.before?.date : undefined;
   const beforeOrder = routeDate ? sortItineraryItemsByDateAndTime(itinerary.filter((item) => item.date === routeDate)) : [];
@@ -91,14 +93,14 @@ function SuggestionPreview({ suggestion, itinerary, tripDates, candidates, place
 
       {!suggestion.canApply ? <p className="mt-3 rounded-[15px] bg-[#FFF3E3] px-3 py-2 text-[10px] font-bold text-[#956E29]">{suggestion.unavailableReason}</p> : null}
       {!preview.success && suggestion.canApply ? <p className="mt-3 rounded-[15px] bg-[#FFF3E3] px-3 py-2 text-[10px] font-bold text-[#956E29]">{preview.reason}</p> : null}
-      <button type="button" disabled className="mt-4 flex h-12 w-full cursor-not-allowed items-center justify-center gap-2 rounded-[18px] bg-[#C5D6ED] text-[12px] font-black text-white">
-        <Check size={16} /> 제안 적용 · 다음 작업에서 연결 예정
+      <button type="button" disabled={!suggestion.canApply || !preview.success || isApplying} onClick={onApply} className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-[18px] bg-[#4388FF] text-[12px] font-black text-white disabled:cursor-not-allowed disabled:bg-[#C5D6ED]">
+        <Check size={16} /> {isApplying ? "적용 중..." : "제안 적용"}
       </button>
     </>
   );
 }
 
-export function DuriSuggestionDrawer({ suggestions, itinerary, tripDates, candidates, placesById, issuesById, onHide, onClose }: DuriSuggestionDrawerProps) {
+export function DuriSuggestionDrawer({ suggestions, itinerary, tripDates, candidates, placesById, issuesById, applyingSuggestionId, onApply, onHide, onClose }: DuriSuggestionDrawerProps) {
   const [selected, setSelected] = useState<DuriSuggestion>();
   return (
     <div className="absolute inset-0 z-[95] flex items-end bg-[#17336A]/35" role="dialog" aria-modal="true" aria-label="두리 제안">
@@ -115,7 +117,7 @@ export function DuriSuggestionDrawer({ suggestions, itinerary, tripDates, candid
 
         <div className="mt-4 min-h-0 flex-1 overflow-y-auto pb-3 no-scrollbar">
           {selected ? (
-            <SuggestionPreview suggestion={selected} itinerary={itinerary} tripDates={tripDates} candidates={candidates} placesById={placesById} onBack={() => setSelected(undefined)} />
+            <SuggestionPreview suggestion={selected} itinerary={itinerary} tripDates={tripDates} candidates={candidates} placesById={placesById} isApplying={applyingSuggestionId === selected.id} onBack={() => setSelected(undefined)} onApply={() => onApply(selected)} />
           ) : suggestions.length ? (
             <div className="space-y-3">
               {suggestions.map((suggestion) => (
@@ -124,7 +126,9 @@ export function DuriSuggestionDrawer({ suggestions, itinerary, tripDates, candid
                   suggestion={suggestion}
                   sourceIssueTitles={suggestion.sourceIssueIds.flatMap((id) => issuesById[id]?.title ?? [])}
                   onPreview={() => setSelected(suggestion)}
+                  onApply={() => onApply(suggestion)}
                   onHide={() => onHide(suggestion.id)}
+                  isApplying={applyingSuggestionId === suggestion.id}
                 />
               ))}
             </div>

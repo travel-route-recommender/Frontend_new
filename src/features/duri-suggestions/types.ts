@@ -24,6 +24,21 @@ export type SuggestionPreviewStatus =
   | "invalid"
   | "not-applicable";
 
+export type SuggestionApplyStatus =
+  | "applied"
+  | "stale"
+  | "conflict"
+  | "invalid"
+  | "trip-not-editable"
+  | "not-authorized";
+
+export interface SuggestionApplyResult {
+  status: SuggestionApplyStatus;
+  changedItemIds: EntityId[];
+  affectedDate?: string;
+  message?: string;
+}
+
 export type ScheduleChangeSnapshot = {
   date?: string;
   startTime?: string;
@@ -73,9 +88,9 @@ export type SuggestionChangeContext = {
 };
 
 export type SuggestionChangeResult =
-  | { status: "ready"; previewItinerary: ItineraryItem[] }
-  | { status: Exclude<SuggestionPreviewStatus, "ready"> };
+  | { success: true; itinerary: ItineraryItem[]; changedItemIds: EntityId[]; affectedDate?: string }
+  | { success: false; status: Exclude<SuggestionPreviewStatus, "ready">; changedItemIds: []; reason: string };
 
 export type SuggestionPreviewResult =
-  | { success: true; previewItinerary: ItineraryItem[] }
+  | { success: true; previewItinerary: ItineraryItem[]; changedItemIds: EntityId[]; affectedDate?: string }
   | { success: false; reason: string };

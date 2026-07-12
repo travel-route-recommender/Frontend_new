@@ -8,6 +8,14 @@ import type {
   TripRoom,
   TripTransport,
 } from "../domain";
+import {
+  applySuggestionChanges,
+  buildItineraryFingerprint,
+} from "../features/duri-suggestions";
+import type {
+  DuriSuggestion,
+  SuggestionApplyResult,
+} from "../features/duri-suggestions";
 import { createDemoData, type DuriDomainState } from "../mocks/demoData";
 import { DEFAULT_PLACE_DURATION_MINUTES } from "../data/workspaceSchedule";
 import { isValidISODate } from "../utils/formatters";
@@ -72,6 +80,7 @@ type DuriActions = {
     itineraryItemId: EntityId,
     patch: Partial<Omit<ItineraryItem, "id" | "tripId">>,
   ) => ItineraryMutationResult;
+  applyDuriSuggestion: (tripId: EntityId, suggestion: DuriSuggestion) => SuggestionApplyResult;
   resetDemoData: () => void;
 };
 
@@ -351,6 +360,72 @@ export const useDuriStore = create<DuriState>()(
               [tripId]: sortItineraryItemsByDateAndTime(
                 current.map((entry) => (entry.id === itineraryItemId ? nextItem : entry)),
               ),
+            },
+          };
+        });
+
+        return result;
+      },
+      applyDuriSuggestion: (tripId, suggestion) => {
+        let result: SuggestionApplyResult = {
+          status: "invalid",
+          changedItemIds: [],
+          message: "제안에 필요한 일정이나 장소를 찾을 수 없어요.",
+        };
+
+        set((state) => {
+          const trip = state.tripsById[tripId];
+          if (!trip || suggestion.tripId !== tripId) return state;
+          if (trip.status === "completed") {
+            result = {
+              status: "trip-not-editable",
+              changedItemIds: [],
+              message: "완료된 여행방에서는 일정을 수정할 수 없어요.",
+            };
+            return state;
+          }
+          if (!trip.members.some((member) => member.userId === state.currentUserId)) {
+            result = {
+              status: "not-authorized",
+              changedItemIds: [],
+              message: "이 여행방의 일정을 수정할 권한이 없어요.",
+            };
+            return state;
+          }
+          const current = state.itineraryByTripId[tripId] ?? [];
+          if (buildItineraryFingerprint(current) !== suggestion.itineraryFingerprint) {
+            result = {
+              status: "stale",
+              changedItemIds: [],
+              message: "일정이 변경되어 두리 제안을 다시 계산했어요.",
+            };
+            return state;
+          }
+          const changed = applySuggestionChanges(current, suggestion, {
+            tripId,
+            tripDates: getTripDates(trip.startDate, trip.endDate),
+            placesById: state.placesById,
+            candidates: state.candidatesByTripId[tripId] ?? [],
+          });
+          if (!changed.success) {
+            result = {
+              status: changed.status === "conflict" ? "conflict" : "invalid",
+              changedItemIds: [],
+              message: changed.status === "conflict"
+                ? "현재 일정과 시간이 겹쳐 제안을 적용하지 못했어요."
+                : "제안에 필요한 일정이나 장소를 찾을 수 없어요.",
+            };
+            return state;
+          }
+          result = {
+            status: "applied",
+            changedItemIds: changed.changedItemIds,
+            affectedDate: changed.affectedDate,
+          };
+          return {
+            itineraryByTripId: {
+              ...state.itineraryByTripId,
+              [tripId]: changed.itinerary,
             },
           };
         });

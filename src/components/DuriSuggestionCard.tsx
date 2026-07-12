@@ -5,7 +5,9 @@ type DuriSuggestionCardProps = {
   suggestion: DuriSuggestion;
   sourceIssueTitles: string[];
   onPreview: () => void;
+  onApply: () => void;
   onHide: () => void;
+  isApplying?: boolean;
 };
 
 const priorityLabel = { high: "우선 확인", medium: "조율 제안", low: "작은 개선" } as const;
@@ -28,7 +30,7 @@ const changeLabel: Record<DuriSuggestion["changes"][number]["action"], string> =
   replace: "대체",
 };
 
-export function DuriSuggestionCard({ suggestion, sourceIssueTitles, onPreview, onHide }: DuriSuggestionCardProps) {
+export function DuriSuggestionCard({ suggestion, sourceIssueTitles, onPreview, onApply, onHide, isApplying = false }: DuriSuggestionCardProps) {
   return (
     <article className="rounded-[24px] border border-[#E2ECFA] bg-white p-4 shadow-[0_8px_18px_rgba(91,129,190,0.11)]">
       <div className="flex gap-3">
@@ -64,17 +66,17 @@ export function DuriSuggestionCard({ suggestion, sourceIssueTitles, onPreview, o
         </button>
         <button
           type="button"
-          disabled
-          aria-describedby={suggestion.canApply ? `${suggestion.id}-next-step` : `${suggestion.id}-unavailable`}
-          className="flex h-10 items-center justify-center gap-1 rounded-[15px] bg-[#C5D6ED] text-[10px] font-black text-white disabled:cursor-not-allowed"
+          onClick={onApply}
+          disabled={!suggestion.canApply || isApplying}
+          aria-describedby={!suggestion.canApply ? `${suggestion.id}-unavailable` : undefined}
+          className="flex h-10 items-center justify-center gap-1 rounded-[15px] bg-[#4F86F7] text-[10px] font-black text-white disabled:cursor-not-allowed disabled:bg-[#C5D6ED]"
         >
-          제안 적용 <ArrowRight size={13} />
+          {isApplying ? "적용 중..." : "제안 적용"} <ArrowRight size={13} />
         </button>
         <button type="button" onClick={onHide} aria-label="이번 제안 숨기기" className="grid h-10 w-10 place-items-center rounded-[15px] bg-[#F2F7FF] text-[#8BAFE4]">
           <X size={14} />
         </button>
       </div>
-      {suggestion.canApply ? <p id={`${suggestion.id}-next-step`} className="mt-2 text-center text-[9px] font-bold text-[#8CAADA]">실제 일정 반영은 다음 작업에서 연결할 예정이에요.</p> : null}
     </article>
   );
 }
