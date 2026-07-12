@@ -8,6 +8,7 @@ import { CandidateBoardPanel } from "./CandidateBoardPanel";
 import { CandidateBottomSheet } from "./CandidateBottomSheet";
 import type { CandidateSheetState } from "./CandidateBottomSheet";
 import { DuriAnalysisWorkspace } from "./DuriAnalysisWorkspace";
+import { DuriSuggestionDrawer } from "./DuriSuggestionDrawer";
 import { PhoneStatusBar } from "./PhoneStatusBar";
 import { ScheduleEditorSheet } from "./ScheduleEditorSheet";
 import type { ScheduleEditorValue } from "./ScheduleEditorSheet";
@@ -20,6 +21,12 @@ import type { FilterKey, WorkspaceTab } from "../data/workspace";
 import { DEFAULT_PLACE_DURATION_MINUTES, WORKSPACE_START_MINUTES } from "../data/workspaceSchedule";
 import type { ItineraryItem } from "../domain";
 import type { AnalysisIssue } from "../features/duri-analysis";
+import {
+  buildItineraryFingerprint,
+  createInverseChanges,
+  generateDuriSuggestions,
+} from "../features/duri-suggestions";
+import type { DuriSuggestion } from "../features/duri-suggestions";
 import { selectTripAnalysis } from "../store/selectors";
 import { useDuriStore } from "../store/useDuriStore";
 import type { ItineraryMutationResult } from "../store/useDuriStore";
@@ -59,6 +66,10 @@ export function DuriWorkspaceScreen({ tripId }: { tripId: string }) {
   const [collisionItemId, setCollisionItemId] = useState<string>();
   const [analysisItemIds, setAnalysisItemIds] = useState<string[]>([]);
   const [analysisFocus, setAnalysisFocus] = useState<{ itemId: string; date: string; startTime: string; token: number }>();
+  const [suggestionDrawerOpen, setSuggestionDrawerOpen] = useState(false);
+  const [suggestionDrawerVersion, setSuggestionDrawerVersion] = useState(0);
+  const [hiddenSuggestionIds, setHiddenSuggestionIds] = useState<string[]>([]);
+  const [undoSuggestion, setUndoSuggestion] = useState<DuriSuggestion>();
   const sheetBeforeDrag = useRef<CandidateSheetState>("half");
   const collisionTimer = useRef<number | undefined>(undefined);
   const analysisTimer = useRef<number | undefined>(undefined);
@@ -73,13 +84,17 @@ export function DuriWorkspaceScreen({ tripId }: { tripId: string }) {
   const addPlaceToItinerary = useDuriStore((state) => state.addPlaceToItinerary);
   const updateItineraryItem = useDuriStore((state) => state.updateItineraryItem);
   const removeItineraryItem = useDuriStore((state) => state.removeItineraryItem);
+  const applyDuriSuggestion = useDuriStore((state) => state.applyDuriSuggestion);
 
   const tripDates = useMemo(() => (trip ? getTripDates(trip.startDate, trip.endDate) : []), [trip]);
   useEffect(() => {
     if (!tripDates.includes(activeDate)) setActiveDate(tripDates[0] ?? "");
   }, [activeDate, tripDates]);
   useEffect(() => {
-    const timeout = window.setTimeout(() => setToast(""), 3000);
+    const timeout = window.setTimeout(() => {
+      setToast("");
+      setUndoSuggestion(undefined);
+    }, 3000);
     return () => window.clearTimeout(timeout);
   }, [toast]);
   useEffect(() => () => {
@@ -124,6 +139,32 @@ export function DuriWorkspaceScreen({ tripId }: { tripId: string }) {
       ),
     [candidates, itinerary, placesById, preferenceResultsByUserId, tripId, trip, usersById],
   );
+  const itineraryFingerprint = useMemo(() => buildItineraryFingerprint(itinerary ?? []), [itinerary]);
+  const suggestions = useMemo(
+    () => trip && analysis
+      ? generateDuriSuggestions({
+          trip,
+          members: companions,
+          placesById,
+          candidates: candidates ?? [],
+          itinerary: itinerary ?? [],
+          preferenceResults: preferenceResultsByUserId,
+          analysis,
+        })
+      : [],
+    [analysis, candidates, companions, itinerary, placesById, preferenceResultsByUserId, trip],
+  );
+  const visibleSuggestions = useMemo(
+    () => suggestions.filter((suggestion) => !hiddenSuggestionIds.includes(suggestion.id)),
+    [hiddenSuggestionIds, suggestions],
+  );
+  const analysisIssuesById = useMemo(
+    () => analysis
+      ? Object.fromEntries([analysis.route, analysis.density, analysis.meal, analysis.preference].flatMap((category) => category.issues).map((issue) => [issue.id, issue]))
+      : {},
+    [analysis],
+  );
+  useEffect(() => setHiddenSuggestionIds([]), [itineraryFingerprint]);
   const scheduledPlaceIds = useMemo(() => new Set((itinerary ?? []).flatMap((item) => (item.placeId ? [item.placeId] : []))), [itinerary]);
   const scheduledPlaces = candidateViews.filter((view) => scheduledPlaceIds.has(view.place.id)).length;
   const totalCandidates = candidateViews.length;
@@ -310,6 +351,63 @@ export function DuriWorkspaceScreen({ tripId }: { tripId: string }) {
     analysisTimer.current = window.setTimeout(() => setAnalysisItemIds([]), 1800);
   };
 
+  const highlightSuggestionChanges = (suggestion: DuriSuggestion, nextItinerary: ItineraryItem[]) => {
+    const affectedIds = suggestion.affectedItemIds.filter((id) => nextItinerary.some((item) => item.id === id));
+    const targetItem = nextItinerary.find((item) => affectedIds.includes(item.id));
+    const targetDate = targetItem?.date ?? suggestion.changes.find((change) => change.after?.date || change.before?.date)?.after?.date ?? suggestion.changes[0]?.before?.date;
+    if (targetDate) setActiveDate(targetDate);
+    setAnalysisItemIds(affectedIds);
+    if (targetItem) setAnalysisFocus({ itemId: targetItem.id, date: targetItem.date, startTime: targetItem.startTime, token: Date.now() });
+    setActiveTab("schedule");
+    setCandidateSheetState("collapsed");
+    if (analysisTimer.current) window.clearTimeout(analysisTimer.current);
+    analysisTimer.current = window.setTimeout(() => setAnalysisItemIds([]), 2200);
+  };
+
+  const suggestionSuccessMessage = (suggestion: DuriSuggestion) => {
+    if (suggestion.type === "reorder-route") return "두리의 동선 개선안을 적용했어요.";
+    if (suggestion.type === "insert-meal") return "식사 일정을 추가했어요.";
+    if (suggestion.type === "add-preference-place" || suggestion.type === "replace-place") return "동행자의 선호 장소를 일정에 반영했어요.";
+    if (suggestion.type === "insert-rest" || suggestion.type === "move-item") return "일정 사이에 휴식 여유를 만들었어요.";
+    return "과도한 일정 하나를 시간표에서 제외했어요.";
+  };
+
+  const handleApplySuggestion = (suggestion: DuriSuggestion) => {
+    const before = (itinerary ?? []).map((item) => ({ ...item, preferredByUserIds: [...item.preferredByUserIds] }));
+    const result = applyDuriSuggestion(tripId, suggestion);
+    if (result === "applied") {
+      const after = useDuriStore.getState().itineraryByTripId[tripId] ?? [];
+      setUndoSuggestion(createInverseChanges(suggestion, before, after));
+      setSuggestionDrawerOpen(false);
+      highlightSuggestionChanges(suggestion, after);
+      setToast(suggestionSuccessMessage(suggestion));
+      return;
+    }
+    if (result === "stale") {
+      setToast("일정이 변경되어 제안을 다시 계산했어요.");
+      setSuggestionDrawerVersion((version) => version + 1);
+      return;
+    }
+    if (result === "conflict") {
+      setToast("현재 일정과 겹쳐 제안을 적용하지 않았어요.");
+      return;
+    }
+    setToast(result === "not-applicable" ? "현재 일정에는 이 제안을 적용할 수 없어요." : "제안 내용을 확인할 수 없어 일정은 변경하지 않았어요.");
+  };
+
+  const handleUndoSuggestion = () => {
+    if (!undoSuggestion) return;
+    const result = applyDuriSuggestion(tripId, undoSuggestion);
+    setUndoSuggestion(undefined);
+    if (result === "applied") {
+      const restored = useDuriStore.getState().itineraryByTripId[tripId] ?? [];
+      highlightSuggestionChanges(undoSuggestion, restored);
+      setToast("마지막 제안 적용을 취소했어요.");
+    } else {
+      setToast("일정이 다시 변경되어 실행 취소할 수 없어요.");
+    }
+  };
+
   return (
     <DragDropProvider
       sensors={(defaults) => [...defaults.filter((sensor) => sensor !== PointerSensor), pointerSensor]}
@@ -334,7 +432,7 @@ export function DuriWorkspaceScreen({ tripId }: { tripId: string }) {
             ) : null}
             {activeTab === "analysis" ? (
               <div className="h-full overflow-y-auto pb-6 no-scrollbar">
-                {analysis ? <DuriAnalysisWorkspace report={analysis} mode="full" onViewIssue={viewAnalysisIssue} onOpenCandidates={() => { setActiveTab("schedule"); setCandidateSheetState("half"); }} /> : null}
+                {analysis ? <DuriAnalysisWorkspace report={analysis} mode="full" onViewIssue={viewAnalysisIssue} onOpenCandidates={() => { setActiveTab("schedule"); setCandidateSheetState("half"); }} onOpenSuggestions={() => setSuggestionDrawerOpen(true)} suggestionCount={visibleSuggestions.length} /> : null}
               </div>
             ) : null}
           </div>
@@ -353,7 +451,21 @@ export function DuriWorkspaceScreen({ tripId }: { tripId: string }) {
               onDelete={editor.mode === "edit" ? deleteEditor : undefined}
             />
           ) : null}
-          <ActionToast message={toast} />
+          {suggestionDrawerOpen ? (
+            <DuriSuggestionDrawer
+              key={`${itineraryFingerprint}-${suggestionDrawerVersion}`}
+              suggestions={visibleSuggestions}
+              itinerary={itinerary ?? []}
+              tripDates={tripDates}
+              candidates={candidates ?? []}
+              placesById={placesById}
+              issuesById={analysisIssuesById}
+              onApply={handleApplySuggestion}
+              onHide={(suggestionId) => setHiddenSuggestionIds((current) => [...current, suggestionId])}
+              onClose={() => setSuggestionDrawerOpen(false)}
+            />
+          ) : null}
+          <ActionToast message={toast} actionLabel={undoSuggestion ? "실행 취소" : undefined} onAction={undoSuggestion ? handleUndoSuggestion : undefined} />
           <DragOverlay dropAnimation={{ duration: 140, easing: "ease-out" }}>
             {activeDrag ? <div className="rounded-[16px] bg-[#243C8F] px-4 py-3 text-[12px] font-black text-white shadow-xl">{activeDrag.name}<span className="ml-2 text-[#A9D0FF]">시간표에 놓기</span></div> : null}
           </DragOverlay>

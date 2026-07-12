@@ -8,6 +8,8 @@ type DuriAnalysisWorkspaceProps = {
   mode?: "compact" | "full";
   onViewIssue?: (issue: AnalysisIssue) => void;
   onOpenCandidates?: () => void;
+  onOpenSuggestions?: () => void;
+  suggestionCount?: number;
 };
 
 const categoryMeta: Record<AnalysisCategory, { label: string; icon: LucideIcon }> = {
@@ -24,7 +26,7 @@ const statusMeta: Record<AnalysisStatus, { label: string; className: string; ico
   "insufficient-data": { label: "데이터가 더 필요해요", className: "bg-[#EEF4FC] text-[#7595C4]", icon: Sparkles },
 };
 
-export function DuriAnalysisWorkspace({ report, mode = "compact", onViewIssue, onOpenCandidates }: DuriAnalysisWorkspaceProps) {
+export function DuriAnalysisWorkspace({ report, mode = "compact", onViewIssue, onOpenCandidates, onOpenSuggestions, suggestionCount = 0 }: DuriAnalysisWorkspaceProps) {
   const [expandedCategories, setExpandedCategories] = useState<AnalysisCategory[]>(mode === "full" ? ["route", "density", "meal", "preference"] : []);
   const overall = statusMeta[report.overallStatus];
   const OverallIcon = overall.icon;
@@ -60,6 +62,11 @@ export function DuriAnalysisWorkspace({ report, mode = "compact", onViewIssue, o
             <p className="mt-1 text-[11px] font-bold text-[#8BAFE4]">일정 {report.analyzedItemCount}개 분석</p>
           </div>
         </div>
+        {onOpenSuggestions ? (
+          <button type="button" onClick={onOpenSuggestions} className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-[17px] bg-[#4388FF] text-[12px] font-black text-white shadow-[0_8px_16px_rgba(67,136,255,0.2)]">
+            <Sparkles size={15} /> 두리 제안 보기{suggestionCount ? ` ${suggestionCount}개` : ""}<ArrowRight size={14} />
+          </button>
+        ) : null}
       </article>
 
       <div className="mt-3 space-y-3">
