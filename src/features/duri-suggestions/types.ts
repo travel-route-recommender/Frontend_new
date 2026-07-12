@@ -16,14 +16,15 @@ export type DuriSuggestionType =
 
 export type SuggestionPriority = "low" | "medium" | "high";
 
-export type SuggestionApplyStatus =
-  | "applied"
-  | "stale"
+export type ScheduleChangeAction = "add" | "remove" | "move" | "resize" | "replace";
+
+export type SuggestionPreviewStatus =
+  | "ready"
   | "conflict"
   | "invalid"
   | "not-applicable";
 
-export type ScheduleChangeState = {
+export type ScheduleChangeSnapshot = {
   date?: string;
   startTime?: string;
   durationMinutes?: number;
@@ -33,12 +34,14 @@ export type ScheduleChangeState = {
   note?: string;
 };
 
+export type ScheduleChangeState = ScheduleChangeSnapshot;
+
 export interface ScheduleChangePreview {
   itemId?: EntityId;
   placeId?: EntityId;
-  action: "add" | "remove" | "move" | "resize" | "replace";
-  before?: ScheduleChangeState;
-  after?: ScheduleChangeState;
+  action: ScheduleChangeAction;
+  before?: ScheduleChangeSnapshot;
+  after?: ScheduleChangeSnapshot;
 }
 
 export interface DuriSuggestion {
@@ -70,6 +73,9 @@ export type SuggestionChangeContext = {
 };
 
 export type SuggestionChangeResult =
-  | { status: "applied"; itinerary: ItineraryItem[] }
-  | { status: Exclude<SuggestionApplyStatus, "applied" | "stale"> };
+  | { status: "ready"; previewItinerary: ItineraryItem[] }
+  | { status: Exclude<SuggestionPreviewStatus, "ready"> };
 
+export type SuggestionPreviewResult =
+  | { success: true; previewItinerary: ItineraryItem[] }
+  | { success: false; reason: string };

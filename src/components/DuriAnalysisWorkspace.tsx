@@ -8,7 +8,7 @@ type DuriAnalysisWorkspaceProps = {
   mode?: "compact" | "full";
   onViewIssue?: (issue: AnalysisIssue) => void;
   onOpenCandidates?: () => void;
-  onOpenSuggestions?: () => void;
+  onOpenSuggestions?: (issue?: AnalysisIssue) => void;
   suggestionCount?: number;
 };
 
@@ -63,7 +63,7 @@ export function DuriAnalysisWorkspace({ report, mode = "compact", onViewIssue, o
           </div>
         </div>
         {onOpenSuggestions ? (
-          <button type="button" onClick={onOpenSuggestions} className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-[17px] bg-[#4388FF] text-[12px] font-black text-white shadow-[0_8px_16px_rgba(67,136,255,0.2)]">
+          <button type="button" onClick={() => onOpenSuggestions()} className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-[17px] bg-[#4388FF] text-[12px] font-black text-white shadow-[0_8px_16px_rgba(67,136,255,0.2)]">
             <Sparkles size={15} /> 두리 제안 보기{suggestionCount ? ` ${suggestionCount}개` : ""}<ArrowRight size={14} />
           </button>
         ) : null}
@@ -77,6 +77,7 @@ export function DuriAnalysisWorkspace({ report, mode = "compact", onViewIssue, o
             expanded={expandedCategories.includes(category.category)}
             onToggle={() => setExpandedCategories((current) => current.includes(category.category) ? current.filter((entry) => entry !== category.category) : [...current, category.category])}
             onViewIssue={onViewIssue}
+            onOpenSuggestions={onOpenSuggestions}
           />
         ))}
       </div>
@@ -84,7 +85,7 @@ export function DuriAnalysisWorkspace({ report, mode = "compact", onViewIssue, o
   );
 }
 
-function CategoryCard({ result, expanded, onToggle, onViewIssue }: { result: CategoryAnalysisResult; expanded: boolean; onToggle: () => void; onViewIssue?: (issue: AnalysisIssue) => void }) {
+function CategoryCard({ result, expanded, onToggle, onViewIssue, onOpenSuggestions }: { result: CategoryAnalysisResult; expanded: boolean; onToggle: () => void; onViewIssue?: (issue: AnalysisIssue) => void; onOpenSuggestions?: (issue?: AnalysisIssue) => void }) {
   const meta = categoryMeta[result.category];
   const status = statusMeta[result.status];
   const Icon = meta.icon;
@@ -119,7 +120,10 @@ function CategoryCard({ result, expanded, onToggle, onViewIssue }: { result: Cat
               <p className="text-[11px] font-black text-[#243C8F]">{issue.title}</p>
               <p className="mt-1 text-[10px] font-bold leading-4 text-[#7898CE]">{issue.summary}</p>
               <div className="mt-2 space-y-1">{issue.evidence.slice(0, 3).map((entry, index) => <p key={`${entry.label}-${index}`} className="text-[9px] font-bold text-[#8CAADA]">· {entry.label}: {entry.value}</p>)}</div>
-              {onViewIssue && issue.affectedItemIds.length ? <button type="button" onClick={() => onViewIssue(issue)} className="mt-3 flex items-center gap-1 text-[10px] font-black text-[#4388FF]">일정에서 보기<ArrowRight size={12} /></button> : null}
+              <div className="mt-3 flex flex-wrap gap-3">
+                {onViewIssue && issue.affectedItemIds.length ? <button type="button" onClick={() => onViewIssue(issue)} className="flex items-center gap-1 text-[10px] font-black text-[#4388FF]">일정에서 보기<ArrowRight size={12} /></button> : null}
+                {onOpenSuggestions && issue.severity !== "info" ? <button type="button" onClick={() => onOpenSuggestions(issue)} className="flex items-center gap-1 text-[10px] font-black text-[#6E8FC7]">이 이슈 개선안 보기<Sparkles size={11} /></button> : null}
+              </div>
             </div>
           )) : <p className="rounded-[15px] bg-[#F7FAFF] px-3 py-4 text-center text-[10px] font-bold text-[#8CAADA]">현재 데이터로 표시할 세부 근거가 없어요.</p>}
         </div>

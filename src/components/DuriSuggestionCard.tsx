@@ -5,7 +5,6 @@ type DuriSuggestionCardProps = {
   suggestion: DuriSuggestion;
   sourceIssueTitles: string[];
   onPreview: () => void;
-  onApply: () => void;
   onHide: () => void;
 };
 
@@ -21,7 +20,15 @@ const impactByType: Record<DuriSuggestion["type"], string> = {
   "replace-place": "일정 수를 늘리지 않고 선호 보완",
 };
 
-export function DuriSuggestionCard({ suggestion, sourceIssueTitles, onPreview, onApply, onHide }: DuriSuggestionCardProps) {
+const changeLabel: Record<DuriSuggestion["changes"][number]["action"], string> = {
+  add: "추가",
+  remove: "삭제",
+  move: "이동",
+  resize: "체류시간 변경",
+  replace: "대체",
+};
+
+export function DuriSuggestionCard({ suggestion, sourceIssueTitles, onPreview, onHide }: DuriSuggestionCardProps) {
   return (
     <article className="rounded-[24px] border border-[#E2ECFA] bg-white p-4 shadow-[0_8px_18px_rgba(91,129,190,0.11)]">
       <div className="flex gap-3">
@@ -32,6 +39,7 @@ export function DuriSuggestionCard({ suggestion, sourceIssueTitles, onPreview, o
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="rounded-full bg-[#EAF2FF] px-2 py-1 text-[9px] font-black text-[#4F86F7]">{priorityLabel[suggestion.priority]}</span>
             <span className="text-[9px] font-black text-[#8BA8D3]">변경 {suggestion.changes.length}개</span>
+            {[...new Set(suggestion.changes.map((change) => changeLabel[change.action]))].map((label) => <span key={label} className="rounded-full bg-[#F3F7FC] px-2 py-1 text-[9px] font-black text-[#7694C3]">{label}</span>)}
           </div>
           <h3 className="mt-2 text-[14px] font-black leading-5 text-[#213D90]">{suggestion.title}</h3>
           <p className="mt-1 text-[11px] font-bold leading-5 text-[#6F8AC2]">{suggestion.reason}</p>
@@ -56,10 +64,9 @@ export function DuriSuggestionCard({ suggestion, sourceIssueTitles, onPreview, o
         </button>
         <button
           type="button"
-          onClick={onApply}
-          disabled={!suggestion.canApply}
-          aria-describedby={!suggestion.canApply ? `${suggestion.id}-unavailable` : undefined}
-          className="flex h-10 items-center justify-center gap-1 rounded-[15px] bg-[#4F86F7] text-[10px] font-black text-white disabled:cursor-not-allowed disabled:bg-[#C5D6ED]"
+          disabled
+          aria-describedby={suggestion.canApply ? `${suggestion.id}-next-step` : `${suggestion.id}-unavailable`}
+          className="flex h-10 items-center justify-center gap-1 rounded-[15px] bg-[#C5D6ED] text-[10px] font-black text-white disabled:cursor-not-allowed"
         >
           제안 적용 <ArrowRight size={13} />
         </button>
@@ -67,6 +74,7 @@ export function DuriSuggestionCard({ suggestion, sourceIssueTitles, onPreview, o
           <X size={14} />
         </button>
       </div>
+      {suggestion.canApply ? <p id={`${suggestion.id}-next-step`} className="mt-2 text-center text-[9px] font-bold text-[#8CAADA]">실제 일정 반영은 다음 작업에서 연결할 예정이에요.</p> : null}
     </article>
   );
 }

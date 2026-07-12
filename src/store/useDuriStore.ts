@@ -8,14 +8,6 @@ import type {
   TripRoom,
   TripTransport,
 } from "../domain";
-import {
-  applySuggestionChanges,
-  buildItineraryFingerprint,
-} from "../features/duri-suggestions";
-import type {
-  DuriSuggestion,
-  SuggestionApplyStatus,
-} from "../features/duri-suggestions";
 import { createDemoData, type DuriDomainState } from "../mocks/demoData";
 import { DEFAULT_PLACE_DURATION_MINUTES } from "../data/workspaceSchedule";
 import { isValidISODate } from "../utils/formatters";
@@ -80,7 +72,6 @@ type DuriActions = {
     itineraryItemId: EntityId,
     patch: Partial<Omit<ItineraryItem, "id" | "tripId">>,
   ) => ItineraryMutationResult;
-  applyDuriSuggestion: (tripId: EntityId, suggestion: DuriSuggestion) => SuggestionApplyStatus;
   resetDemoData: () => void;
 };
 
@@ -360,43 +351,6 @@ export const useDuriStore = create<DuriState>()(
               [tripId]: sortItineraryItemsByDateAndTime(
                 current.map((entry) => (entry.id === itineraryItemId ? nextItem : entry)),
               ),
-            },
-          };
-        });
-
-        return result;
-      },
-      applyDuriSuggestion: (tripId, suggestion) => {
-        let result: SuggestionApplyStatus = "invalid";
-
-        set((state) => {
-          const trip = state.tripsById[tripId];
-          if (!trip || suggestion.tripId !== tripId) return state;
-          if (trip.status === "completed") {
-            result = "not-applicable";
-            return state;
-          }
-          if (!trip.members.some((member) => member.userId === state.currentUserId)) {
-            result = "not-applicable";
-            return state;
-          }
-          const current = state.itineraryByTripId[tripId] ?? [];
-          if (buildItineraryFingerprint(current) !== suggestion.itineraryFingerprint) {
-            result = "stale";
-            return state;
-          }
-          const changeResult = applySuggestionChanges(current, suggestion, {
-            tripId,
-            tripDates: getTripDates(trip.startDate, trip.endDate),
-            placesById: state.placesById,
-            candidates: state.candidatesByTripId[tripId] ?? [],
-          });
-          result = changeResult.status;
-          if (changeResult.status !== "applied") return state;
-          return {
-            itineraryByTripId: {
-              ...state.itineraryByTripId,
-              [tripId]: changeResult.itinerary,
             },
           };
         });

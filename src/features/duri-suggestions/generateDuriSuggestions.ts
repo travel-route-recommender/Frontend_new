@@ -11,7 +11,7 @@ import {
   sortItineraryItemsByDateAndTime,
   timeStringToMinutes,
 } from "../../utils/schedule";
-import { applySuggestionChanges } from "./applySuggestion";
+import { buildPreviewItinerary } from "./applySuggestion";
 import { buildItineraryFingerprint, generateSuggestionId } from "./fingerprint";
 import type {
   DuriSuggestion,
@@ -75,13 +75,13 @@ function createSuggestion(
   };
   const id = generateSuggestionId(draft);
   if (!draft.canApply) return { ...draft, id };
-  const result = applySuggestionChanges(input.itinerary, { ...draft, id }, {
+  const result = buildPreviewItinerary(input.itinerary, { ...draft, id }, {
     tripId: input.trip.id,
     tripDates: getTripDates(input.trip.startDate, input.trip.endDate),
     placesById: input.placesById,
     candidates: input.candidates,
   });
-  if (result.status === "applied") return { ...draft, id };
+  if (result.status === "ready") return { ...draft, id };
   return {
     ...draft,
     id,
@@ -189,7 +189,7 @@ function buildMealSuggestion(input: DuriSuggestionInput, issue: AnalysisIssue): 
       affectedPlaceIds: issue.affectedPlaceIds,
       changes: [],
       canApply: false,
-      unavailableReason: "일정을 조금 조정해야 식사 시간을 넣을 수 있어요.",
+      unavailableReason: "현재 일정에는 식사 시간을 넣을 수 있는 빈 시간이 부족해요.",
     });
   }
   const scheduledPlaceIds = new Set(input.itinerary.flatMap((item) => item.placeId ? [item.placeId] : []));
@@ -226,9 +226,11 @@ export function findRestSlot(itinerary: ItineraryItem[], date: string) {
   if (items.length < 2) return undefined;
   const firstStart = timeStringToMinutes(items[0].startTime);
   const lastEnd = Math.max(...items.map((item) => timeStringToMinutes(item.startTime) + item.durationMinutes));
-  for (let minutes = firstStart + 30; minutes + 60 <= lastEnd; minutes += 30) {
-    const startTime = minutesToTimeString(minutes);
-    if (!findOverlappingItem(items, { date, startTime, durationMinutes: 60 })) return startTime;
+  for (const durationMinutes of [60, 30]) {
+    for (let minutes = firstStart + 30; minutes + durationMinutes <= lastEnd; minutes += 30) {
+      const startTime = minutesToTimeString(minutes);
+      if (!findOverlappingItem(items, { date, startTime, durationMinutes })) return { startTime, durationMinutes };
+    }
   }
   return undefined;
 }
@@ -272,19 +274,19 @@ function buildDensitySuggestions(input: DuriSuggestionInput, issue: AnalysisIssu
     }));
   }
 
-  const restStart = findRestSlot(input.itinerary, issue.date);
-  if (restStart) {
-    const itemId = createAddedItemId("insert-rest", issue.date, restStart, undefined, new Set(input.itinerary.map((item) => item.id)));
+  const restSlot = findRestSlot(input.itinerary, issue.date);
+  if (restSlot) {
+    const itemId = createAddedItemId("insert-rest", issue.date, restSlot.startTime, undefined, new Set(input.itinerary.map((item) => item.id)));
     suggestions.push(createSuggestion(input, {
       sourceIssueIds: [issue.id],
       type: "insert-rest",
       priority: issuePriority(issue),
-      title: "일정 사이에 1시간 휴식 추가",
-      summary: `${restStart}부터 비어 있는 시간을 휴식 블록으로 남겨 연속 활동을 나눠요.`,
+      title: `일정 사이에 ${restSlot.durationMinutes}분 휴식 추가`,
+      summary: `${restSlot.startTime}부터 비어 있는 시간을 휴식 블록으로 남겨 연속 활동을 나눠요.`,
       reason: issue.summary,
       affectedItemIds: [itemId],
       affectedPlaceIds: [],
-      changes: [{ itemId, action: "add", after: { date: issue.date, startTime: restStart, durationMinutes: 60, itemType: "rest", preferredByUserIds: [], note: "두리가 제안한 휴식 시간" } }],
+      changes: [{ itemId, action: "add", after: { date: issue.date, startTime: restSlot.startTime, durationMinutes: restSlot.durationMinutes, itemType: "rest", preferredByUserIds: [], note: "휴식 시간" } }],
     }));
   }
 
@@ -332,7 +334,7 @@ function placeMatchesMemberTraits(place: Place, memberId: EntityId, input: DuriS
 function findPreferenceCandidates(input: DuriSuggestionInput, memberId: EntityId) {
   const scheduledPlaceIds = new Set(input.itinerary.flatMap((item) => item.placeId ? [item.placeId] : []));
   return [...input.candidates]
-    .filter((candidate) => !scheduledPlaceIds.has(candidate.placeId) && Boolean(input.placesById[candidate.placeId]))
+    .filter((candidate) => !scheduledPlaceIds.has(candidate.placeId) && input.placesById[candidate.placeId]?.regionId === input.trip.regionId)
     .map((candidate) => ({
       candidate,
       place: input.placesById[candidate.placeId],

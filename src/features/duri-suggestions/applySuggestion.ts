@@ -4,13 +4,12 @@ import {
   isValidScheduleRange,
   sortItineraryItemsByDateAndTime,
 } from "../../utils/schedule";
-import { buildItineraryFingerprint, generateSuggestionId } from "./fingerprint";
 import type {
   DuriSuggestion,
-  ScheduleChangePreview,
   ScheduleChangeState,
   SuggestionChangeContext,
   SuggestionChangeResult,
+  SuggestionPreviewResult,
 } from "./types";
 
 function stateMatches(item: ItineraryItem, expected?: ScheduleChangeState) {
@@ -41,10 +40,10 @@ function validateFinalItinerary(
     }
     if (findOverlappingItem(itinerary, item, item.id)) return "conflict";
   }
-  return "applied";
+  return "ready";
 }
 
-export function applySuggestionChanges(
+export function buildPreviewItinerary(
   itinerary: ItineraryItem[],
   suggestion: DuriSuggestion,
   context: SuggestionChangeContext,
@@ -115,84 +114,22 @@ export function applySuggestionChanges(
   }
 
   const status = validateFinalItinerary(next, context);
-  return status === "applied"
-    ? { status, itinerary: sortItineraryItemsByDateAndTime(next) }
+  return status === "ready"
+    ? { status, previewItinerary: sortItineraryItemsByDateAndTime(next) }
     : { status };
-}
-
-export function validateSuggestion(
-  itinerary: ItineraryItem[],
-  suggestion: DuriSuggestion,
-  context: SuggestionChangeContext,
-) {
-  if (buildItineraryFingerprint(itinerary) !== suggestion.itineraryFingerprint) return "stale" as const;
-  return applySuggestionChanges(itinerary, suggestion, context).status;
 }
 
 export function previewSuggestion(
   itinerary: ItineraryItem[],
   suggestion: DuriSuggestion,
   context: SuggestionChangeContext,
-) {
-  return applySuggestionChanges(itinerary, suggestion, context);
-}
-
-export function createInverseChanges(
-  suggestion: DuriSuggestion,
-  beforeItinerary: ItineraryItem[],
-  afterItinerary: ItineraryItem[],
-): DuriSuggestion {
-  const beforeById = new Map(beforeItinerary.map((item) => [item.id, item]));
-  const afterById = new Map(afterItinerary.map((item) => [item.id, item]));
-  const toState = (item: ItineraryItem): ScheduleChangeState => ({
-    date: item.date,
-    startTime: item.startTime,
-    durationMinutes: item.durationMinutes,
-    placeId: item.placeId,
-    itemType: item.itemType,
-    preferredByUserIds: [...item.preferredByUserIds],
-    note: item.note,
-  });
-  const changes: ScheduleChangePreview[] = [];
-  for (const change of [...suggestion.changes].reverse()) {
-    if (!change.itemId) continue;
-    const before = beforeById.get(change.itemId);
-    const after = afterById.get(change.itemId);
-    if (change.action === "add" && after) {
-      changes.push({ itemId: change.itemId, placeId: after.placeId, action: "remove", before: toState(after) });
-      continue;
-    }
-    if (change.action === "remove" && before) {
-      changes.push({ itemId: change.itemId, placeId: before.placeId, action: "add", after: toState(before) });
-      continue;
-    }
-    if (before && after) {
-      changes.push({
-        itemId: change.itemId,
-        placeId: before.placeId,
-        action: change.action,
-        before: toState(after),
-        after: toState(before),
-      });
-    }
-  }
-  const itineraryFingerprint = buildItineraryFingerprint(afterItinerary);
-  const base = {
-    tripId: suggestion.tripId,
-    sourceIssueIds: suggestion.sourceIssueIds,
-    type: suggestion.type,
-    priority: suggestion.priority,
-    title: `${suggestion.title} 실행 취소`,
-    summary: "마지막 제안 적용 전 일정으로 되돌려요.",
-    reason: "현재 화면에서 마지막으로 적용한 두리 제안만 되돌립니다.",
-    affectedItemIds: changes.flatMap((change) => (change.itemId ? [change.itemId] : [])),
-    affectedPlaceIds: [...new Set(changes.flatMap((change) => {
-      const placeId = change.after?.placeId ?? change.before?.placeId;
-      return placeId ? [placeId] : [];
-    }))],
-    changes,
-    canApply: changes.length > 0,
-    itineraryFingerprint,
-  } satisfies Omit<DuriSuggestion, "id">;
-  return { ...base, id: generateSuggestionId(base) };
+): SuggestionPreviewResult {
+  const result = buildPreviewItinerary(itinerary, suggestion, context);
+  if (result.status === "ready") return { success: true, previewItinerary: result.previewItinerary };
+  const reason = result.status === "conflict"
+    ? "변경 후 일정이 다른 일정과 겹쳐 미리보기를 만들 수 없어요."
+    : result.status === "not-applicable"
+      ? suggestion.unavailableReason ?? "현재 데이터로는 이 제안을 미리 볼 수 없어요."
+      : "변경 대상 일정이나 장소 정보를 확인할 수 없어요.";
+  return { success: false, reason };
 }
