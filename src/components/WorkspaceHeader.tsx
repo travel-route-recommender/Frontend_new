@@ -1,38 +1,33 @@
-import { ArrowLeft, CalendarDays, EllipsisVertical, SlidersHorizontal, UserRound, UsersRound } from "lucide-react";
+import { ArrowLeft, CalendarDays, Check, Sparkles, UsersRound } from "lucide-react";
+import { Link } from "react-router-dom";
 import type { TripRoom, User } from "../domain";
-import { formatTripDateRange, formatTripStatus } from "../utils/formatters";
+import { formatTripDateRange } from "../utils/formatters";
 
-type WorkspaceHeaderProps = { room: TripRoom; companions: User[]; regionName: string };
-const companionTones = ["bg-[#4F86F7] text-white", "bg-[#DCEBFF] text-[#376DCE]", "bg-white text-[#243F93]"];
+type WorkspaceHeaderProps = {
+  room: TripRoom;
+  companions: User[];
+  regionName: string;
+  onOpenAnalysis: () => void;
+};
 
-export function WorkspaceHeader({ room, companions, regionName }: WorkspaceHeaderProps) {
+export function WorkspaceHeader({ room, companions, regionName, onOpenAnalysis }: WorkspaceHeaderProps) {
   return (
-    <header className="space-y-5">
-      <div className="flex items-start justify-between gap-5">
-        <div className="min-w-0 pt-2">
-          <p className="text-[15px] font-black leading-none text-[#8EBDF7]">두리 워크스페이스 ✨</p>
-          <h1 className="mt-3 text-[30px] font-black leading-[1.15] tracking-normal text-[#213D90]">{regionName} 여행을<br />조율해볼까요?</h1>
+    <header className="rounded-[24px] bg-white p-3 shadow-[0_8px_18px_rgba(91,129,190,0.13)]">
+      <div className="flex items-center gap-3">
+        <Link to={`/trips/${room.id}`} aria-label={`${room.title} 여행방으로 돌아가기`} className="grid h-10 w-10 shrink-0 place-items-center rounded-[15px] bg-[#F0F6FF] text-[#6F9DDB]">
+          <ArrowLeft size={19} />
+        </Link>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[16px] font-black text-[#213D90]">{room.title}</p>
+          <p className="mt-1 flex items-center gap-1 truncate text-[10px] font-bold text-[#8BAFE4]"><CalendarDays size={12} />{regionName} · {formatTripDateRange(room.startDate, room.endDate)}</p>
         </div>
-        <button className="grid h-[74px] w-[74px] shrink-0 place-items-center rounded-[24px] bg-[#4F86F7] text-white shadow-[0_14px_28px_rgba(65,113,218,0.35)]"><UserRound size={32} strokeWidth={2.5} /></button>
+        <button type="button" onClick={onOpenAnalysis} className="grid h-10 w-10 shrink-0 place-items-center rounded-[15px] bg-[#4388FF] text-white" aria-label="두리 분석 보기">
+          <Sparkles size={18} />
+        </button>
       </div>
-      <div className="rounded-[28px] bg-white p-4 shadow-[0_9px_18px_rgba(91,129,190,0.14)]">
-        <div className="flex items-center justify-between gap-3">
-          <button aria-label="뒤로가기" className="grid h-11 w-11 place-items-center rounded-2xl bg-[#F0F6FF] text-[#86B5F4]"><ArrowLeft size={20} strokeWidth={2.5} /></button>
-          <div className="flex-1" />
-          <button aria-label="설정" className="grid h-11 w-11 place-items-center rounded-2xl bg-[#4F86F7] text-white"><SlidersHorizontal size={20} strokeWidth={2.5} /></button>
-          <button aria-label="더보기" className="grid h-11 w-11 place-items-center rounded-2xl bg-[#F0F6FF] text-[#86B5F4]"><EllipsisVertical size={20} strokeWidth={2.5} /></button>
-        </div>
-        <div className="mt-4">
-          <p className="text-[20px] font-black leading-tight text-[#243F93]">{room.title}</p>
-          <div className="mt-2 flex flex-wrap gap-2 text-xs font-black text-[#9ABBEA]">
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#F0F6FF] px-3 py-1.5"><CalendarDays size={13} />{formatTripDateRange(room.startDate, room.endDate)}</span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#F0F6FF] px-3 py-1.5"><UsersRound size={13} />동행자 {companions.length}명</span>
-          </div>
-        </div>
-        <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#E3EDFF] pt-4">
-          <div className="flex -space-x-2">{companions.map((person, index) => <span key={person.id} title={person.name} className={`grid h-9 w-9 place-items-center rounded-full border-2 border-white text-sm font-black ${companionTones[index % companionTones.length]}`}>{person.initial}</span>)}</div>
-          <span className="rounded-full bg-[#E4EEFF] px-3 py-1.5 text-[11px] font-black text-[#4A86F7]">{formatTripStatus(room.status)}</span>
-        </div>
+      <div className="mt-3 flex items-center justify-between border-t border-[#E5EEF9] pt-3">
+        <span className="flex items-center gap-1 rounded-full bg-[#EAF3FF] px-3 py-1.5 text-[10px] font-black text-[#4388FF]"><Check size={12} />변경 자동 저장</span>
+        <span className="flex items-center gap-1 text-[10px] font-black text-[#8BAFE4]"><UsersRound size={12} />동행자 {companions.length}명</span>
       </div>
     </header>
   );

@@ -1,5 +1,9 @@
 import type { EntityId, Place, TripCandidate } from "../domain";
+import { analyzeTrip } from "../features/duri-analysis";
+import type { DuriAnalysisInput } from "../features/duri-analysis";
 import type { DuriState } from "./useDuriStore";
+
+const emptyEntityIds: EntityId[] = [];
 
 const getSortableDate = (value: string, fallback: number) => {
   const timestamp = Date.parse(value);
@@ -30,6 +34,16 @@ export const selectCompletedTripsForCurrentUser = (state: DuriState) =>
 
 export const selectCurrentUser = (state: DuriState) => state.usersById[state.currentUserId];
 export const selectActiveTrip = (state: DuriState) => state.tripsById[state.activeTripId];
+export const selectActiveTripForCurrentUser = (state: DuriState) => {
+  const trip = selectActiveTrip(state);
+  return trip?.members.some((member) => member.userId === state.currentUserId) ? trip : undefined;
+};
+export const selectSavedPlaceIdsForCurrentUser = (state: DuriState) =>
+  state.savedPlaceIdsByUserId[state.currentUserId] ?? emptyEntityIds;
+export const selectIsPlaceSavedByCurrentUser = (state: DuriState, placeId: EntityId) =>
+  selectSavedPlaceIdsForCurrentUser(state).includes(placeId);
+export const selectIsPlaceCandidateForTrip = (state: DuriState, tripId: EntityId, placeId: EntityId) =>
+  (state.candidatesByTripId[tripId] ?? []).some((candidate) => candidate.placeId === placeId);
 export const selectTripById = (state: DuriState, tripId: EntityId) => state.tripsById[tripId];
 export const selectTripMembers = (state: DuriState, tripId: EntityId) => {
   const trip = selectTripById(state, tripId);
@@ -39,7 +53,22 @@ export const selectTripCandidates = (state: DuriState, tripId: EntityId) => stat
 export const selectTripItinerary = (state: DuriState, tripId: EntityId) => state.itineraryByTripId[tripId] ?? [];
 export const selectSavedPlacesForCurrentUser = (state: DuriState) =>
   (state.savedPlaceIdsByUserId[state.currentUserId] ?? []).map((id) => state.placesById[id]).filter(Boolean);
-export const selectTripAnalysis = (state: DuriState, tripId: EntityId) => state.analysesByTripId[tripId];
+export const selectTripAnalysisInput = (state: DuriState, tripId: EntityId): DuriAnalysisInput | undefined => {
+  const trip = state.tripsById[tripId];
+  if (!trip) return undefined;
+  return {
+    trip,
+    members: trip.members.flatMap((member) => (state.usersById[member.userId] ? [state.usersById[member.userId]] : [])),
+    placesById: state.placesById,
+    candidates: state.candidatesByTripId[tripId] ?? [],
+    itinerary: state.itineraryByTripId[tripId] ?? [],
+    preferenceResults: state.preferenceResultsByUserId,
+  };
+};
+export const selectTripAnalysis = (state: DuriState, tripId: EntityId) => {
+  const input = selectTripAnalysisInput(state, tripId);
+  return input ? analyzeTrip(input) : undefined;
+};
 export const selectPlaceById = (state: DuriState, placeId: EntityId) => state.placesById[placeId];
 export const selectAllPlaces = (state: DuriState) => Object.values(state.placesById);
 export const selectScheduledPlaceIds = (state: DuriState, tripId: EntityId) =>

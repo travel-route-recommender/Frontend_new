@@ -248,17 +248,8 @@ export function createDemoData(): DuriDomainState {
         completedAt: "2026-07-02",
       },
     },
-    analysesByTripId: {
-      [trip.id]: {
-        tripId: trip.id,
-        matchRate: 78,
-        commonPreferences: ["감성 산책", "카페", "바다"],
-        needsTune: ["일정 밀도", "야간 활동 선호"],
-        routeWarning: "감천문화마을 다음 광안리는 이동 시간이 길 수 있어요.",
-        unplannedCandidateMessage: "국제시장이 아직 일정에 반영되지 않았어요.",
-        suggestion: "Day 1의 이동 거리가 조금 길어요. 감천문화마을을 Day 2 오전으로 옮기면 동선이 더 자연스러워요.",
-      },
-    },
+    // 이전 persist schema와의 호환을 위해 필드는 유지하되, 실제 분석은 일정에서 동적으로 계산한다.
+    analysesByTripId: {},
     savedPlaceIdsByUserId: {
       "user-soomin": ["gamcheon", "gwangalli"],
       "user-jiyoon": ["jeonpo", "huinnyeoul"],

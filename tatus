@@ -1,0 +1,13 @@
+warning: in the working copy of 'src/components/DuriExploreListPage.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/DuriExploreMapPage.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/DuriPlaceDetailSheet.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/data/travelPages.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/PlaceDetailRoute.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/store/selectors.ts', LF will be replaced by CRLF the next time Git touches it
+ src/components/DuriExploreListPage.tsx  | 118 [32m+++++++++++++[m[31m-------[m
+ src/components/DuriExploreMapPage.tsx   | 185 [32m+++++++++++++++++++[m[31m-------------[m
+ src/components/DuriPlaceDetailSheet.tsx |   5 [32m+[m[31m-[m
+ src/data/travelPages.ts                 |   4 [32m+[m[31m-[m
+ src/pages/PlaceDetailRoute.tsx          |  13 [32m++[m[31m-[m
+ src/store/selectors.ts                  |  12 [32m+++[m
+ 6 files changed, 220 insertions(+), 117 deletions(-)

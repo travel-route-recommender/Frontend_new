@@ -30,7 +30,7 @@ export function CandidateBoardPanel({ candidates, schedule, tripStartDate, onAdd
                   <h3 className="mt-1 truncate text-[19px] font-black text-[#213D90]">{place.name}</h3>
                   <div className="mt-2 flex flex-wrap gap-1.5">{place.tags.map((tag) => <span key={tag} className="rounded-full bg-[#F0F6FF] px-2.5 py-1 text-[11px] font-black text-[#8BAFE4]">{tag}</span>)}</div>
                 </div>
-                <button onClick={() => onAddPlace(candidateView)} disabled={Boolean(scheduledDay)} className={`grid h-11 w-11 shrink-0 place-items-center rounded-[17px] text-white ${scheduledDay ? "bg-[#B8D3F7]" : "bg-[#4F86F7]"}`}>
+                <button type="button" onClick={() => onAddPlace(candidateView)} disabled={Boolean(scheduledDay)} aria-label={`${place.name} 일정에 추가`} className={`grid h-11 w-11 shrink-0 place-items-center rounded-[17px] text-white ${scheduledDay ? "bg-[#B8D3F7]" : "bg-[#4F86F7]"}`}>
                   {scheduledDay ? <Check size={18} /> : <Plus size={19} />}
                 </button>
               </div>

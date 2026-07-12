@@ -1,4 +1,6 @@
-export const exploreFilters = ["전체", "공통 관심", "내가 담은", "두리 추천", "카페", "야경"];
+export const exploreFilters = ["전체", "공통 관심", "내가 담은", "두리 추천", "미배치", "카페", "야경"] as const;
+
+export type ExploreFilter = (typeof exploreFilters)[number];
 
 // Map coordinates are presentation-only mock data. Place content is resolved by placeId from the store.
 export const mapPins = [

@@ -6,12 +6,23 @@ type DuriPlaceDetailSheetProps = {
   place: Place | null;
   addedByNames: string[];
   saved: boolean;
+  tripActionLabel: string;
+  tripActionDisabled: boolean;
   onClose: () => void;
   onToggleSaved: () => void;
   onAddToTrip: () => void;
 };
 
-export function DuriPlaceDetailSheet({ place, addedByNames, saved, onClose, onToggleSaved, onAddToTrip }: DuriPlaceDetailSheetProps) {
+export function DuriPlaceDetailSheet({
+  place,
+  addedByNames,
+  saved,
+  tripActionLabel,
+  tripActionDisabled,
+  onClose,
+  onToggleSaved,
+  onAddToTrip,
+}: DuriPlaceDetailSheetProps) {
   if (!place) return null;
 
   return (
@@ -37,6 +48,9 @@ export function DuriPlaceDetailSheet({ place, addedByNames, saved, onClose, onTo
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="mb-2 flex flex-wrap gap-1.5">
+              <span className="rounded-full bg-[#4388FF] px-3 py-1.5 text-[11px] font-black text-white">
+                {place.category}
+              </span>
               {place.tags.slice(0, 3).map((tag) => (
                 <span key={tag} className="rounded-full bg-[#EAF3FF] px-3 py-1.5 text-[11px] font-black text-[#4388FF]">
                   {tag}
@@ -58,7 +72,7 @@ export function DuriPlaceDetailSheet({ place, addedByNames, saved, onClose, onTo
         <p className="mt-4 text-[14px] font-bold leading-6 text-[#6F8AC2]">{place.summary}</p>
 
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <InfoBox icon={<Clock size={17} />} label="추천 시간" value={place.category === "카페" ? "오후 2시" : "오후 5시"} />
+          <InfoBox icon={<Clock size={17} />} label="거리" value={place.distanceLabel} />
           <InfoBox icon={<Heart size={17} />} label="담은 사람" value={addedByNames.join(", ") || "아직 없음"} />
         </div>
 
@@ -66,18 +80,24 @@ export function DuriPlaceDetailSheet({ place, addedByNames, saved, onClose, onTo
           <button
             type="button"
             onClick={onToggleSaved}
+            aria-label={saved ? `${place.name} 저장 해제` : `${place.name} 저장하기`}
             className="flex h-[52px] items-center justify-center gap-2 rounded-[18px] bg-[#F1F6FF] px-3 py-4 text-[14px] font-black text-[#4388FF]"
           >
             <Heart size={18} className={saved ? "fill-[#4388FF]" : ""} />
-            저장
+            {saved ? "저장됨" : "저장하기"}
           </button>
           <button
             type="button"
             onClick={onAddToTrip}
-            className="flex h-[52px] items-center justify-center gap-2 rounded-[18px] bg-[#4388FF] px-3 py-4 text-[14px] font-black text-white shadow-[0_12px_22px_rgba(67,136,255,0.28)]"
+            disabled={tripActionDisabled}
+            className={`flex h-[52px] min-w-0 items-center justify-center gap-2 rounded-[18px] px-3 py-4 text-[13px] font-black text-white ${
+              tripActionDisabled
+                ? "cursor-not-allowed bg-[#AFCBF1] shadow-none"
+                : "bg-[#4388FF] shadow-[0_12px_22px_rgba(67,136,255,0.28)]"
+            }`}
           >
-            <Plus size={18} />
-            여행방에 추가
+            {tripActionDisabled ? <span className="text-[16px]">✓</span> : <Plus size={18} className="shrink-0" />}
+            <span className="truncate">{tripActionLabel}</span>
           </button>
         </div>
       </div>

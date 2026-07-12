@@ -9,8 +9,15 @@ import type {
   TripTransport,
 } from "../domain";
 import { createDemoData, type DuriDomainState } from "../mocks/demoData";
+import { DEFAULT_PLACE_DURATION_MINUTES } from "../data/workspaceSchedule";
 import { isValidISODate } from "../utils/formatters";
 import { createUniqueEntityId } from "../utils/ids";
+import {
+  findOverlappingItem,
+  getTripDates,
+  isValidScheduleRange,
+  sortItineraryItemsByDateAndTime,
+} from "../utils/schedule";
 
 export type AddPlaceToItineraryInput = {
   tripId: EntityId;
@@ -32,25 +39,43 @@ export type CreateTripInput = {
   invitedUserIds: EntityId[];
 };
 
+export type AddCandidatePlaceResult =
+  | "added"
+  | "already-exists"
+  | "invalid-trip"
+  | "invalid-place"
+  | "trip-not-editable"
+  | "not-member";
+
+export type ItineraryMutationResult =
+  | "success"
+  | "invalid-trip"
+  | "trip-not-editable"
+  | "not-member"
+  | "invalid-item"
+  | "invalid-place"
+  | "duplicate-place"
+  | "invalid-date"
+  | "invalid-time"
+  | "overlap";
+
 type DuriActions = {
   createTrip: (input: CreateTripInput) => EntityId;
   setActiveTrip: (tripId: EntityId) => void;
   toggleSavedPlace: (placeId: EntityId, userId?: EntityId) => void;
-  addCandidatePlace: (tripId: EntityId, placeId: EntityId, addedByUserId?: EntityId) => void;
+  addCandidatePlace: (tripId: EntityId, placeId: EntityId, addedByUserId?: EntityId) => AddCandidatePlaceResult;
   removeCandidatePlace: (tripId: EntityId, placeId: EntityId) => void;
-  addPlaceToItinerary: (input: AddPlaceToItineraryInput) => void;
-  removeItineraryItem: (tripId: EntityId, itineraryItemId: EntityId) => void;
+  addPlaceToItinerary: (input: AddPlaceToItineraryInput) => ItineraryMutationResult;
+  removeItineraryItem: (tripId: EntityId, itineraryItemId: EntityId) => ItineraryMutationResult;
   updateItineraryItem: (
     tripId: EntityId,
     itineraryItemId: EntityId,
     patch: Partial<Omit<ItineraryItem, "id" | "tripId">>,
-  ) => void;
+  ) => ItineraryMutationResult;
   resetDemoData: () => void;
 };
 
 export type DuriState = DuriDomainState & DuriActions;
-
-const defaultDurationForCategory = (category: string) => (category === "시장" ? 60 : 90);
 
 function createItineraryId(state: DuriDomainState, tripId: EntityId, placeId: EntityId, date: string) {
   const prefix = `itinerary-${tripId}-${date}-${placeId}`;
@@ -127,25 +152,57 @@ export const useDuriStore = create<DuriState>()(
             },
           };
         }),
-      addCandidatePlace: (tripId, placeId, addedByUserId) =>
+      addCandidatePlace: (tripId, placeId, addedByUserId) => {
+        let result: AddCandidatePlaceResult = "invalid-trip";
+
         set((state) => {
           const trip = state.tripsById[tripId];
           const targetUserId = addedByUserId ?? state.currentUserId;
-          if (!trip || !state.placesById[placeId] || !trip.members.some((member) => member.userId === targetUserId)) return state;
+          if (!trip) return state;
+          if (!state.placesById[placeId]) {
+            result = "invalid-place";
+            return state;
+          }
+          if (trip.status === "completed") {
+            result = "trip-not-editable";
+            return state;
+          }
+          const currentUserIsMember = trip.members.some((member) => member.userId === state.currentUserId);
+          const targetUserIsMember = trip.members.some((member) => member.userId === targetUserId);
+          if (!currentUserIsMember || !targetUserIsMember) {
+            result = "not-member";
+            return state;
+          }
+
           const current = state.candidatesByTripId[tripId] ?? [];
           const existing = current.find((candidate) => candidate.placeId === placeId);
+          if (existing?.addedByUserIds.includes(targetUserId)) {
+            result = "already-exists";
+            return state;
+          }
+
+          result = "added";
           const next = existing
             ? current.map((candidate) =>
-                candidate.placeId === placeId && !candidate.addedByUserIds.includes(targetUserId)
+                candidate.placeId === placeId
                   ? { ...candidate, addedByUserIds: [...candidate.addedByUserIds, targetUserId] }
                   : candidate,
               )
             : [
                 ...current,
-                { tripId, placeId, addedByUserIds: [targetUserId], recommendedByDuri: false },
+                {
+                  tripId,
+                  placeId,
+                  addedByUserIds: [targetUserId],
+                  recommendedByDuri: false,
+                  addedAt: new Date().toISOString().slice(0, 10),
+                },
               ];
           return { candidatesByTripId: { ...state.candidatesByTripId, [tripId]: next } };
-        }),
+        });
+
+        return result;
+      },
       removeCandidatePlace: (tripId, placeId) =>
         set((state) => {
           if (!state.tripsById[tripId]) return state;
@@ -156,53 +213,150 @@ export const useDuriStore = create<DuriState>()(
             },
           };
         }),
-      addPlaceToItinerary: (input) =>
+      addPlaceToItinerary: (input) => {
+        let result: ItineraryMutationResult = "invalid-trip";
+
         set((state) => {
           const trip = state.tripsById[input.tripId];
           const place = state.placesById[input.placeId];
-          if (!trip || !place) return state;
+          if (!trip) return state;
+          if (trip.status === "completed") {
+            result = "trip-not-editable";
+            return state;
+          }
+          if (!trip.members.some((member) => member.userId === state.currentUserId)) {
+            result = "not-member";
+            return state;
+          }
+          if (!place) {
+            result = "invalid-place";
+            return state;
+          }
+          if (!getTripDates(trip.startDate, trip.endDate).includes(input.date)) {
+            result = "invalid-date";
+            return state;
+          }
+
           const current = state.itineraryByTripId[input.tripId] ?? [];
-          if (current.some((item) => item.placeId === input.placeId)) return state;
+          if (current.some((item) => item.placeId === input.placeId)) {
+            result = "duplicate-place";
+            return state;
+          }
           const candidate = (state.candidatesByTripId[input.tripId] ?? []).find((item) => item.placeId === input.placeId);
           const nextItem: ItineraryItem = {
             id: createItineraryId(state, input.tripId, input.placeId, input.date),
             tripId: input.tripId,
             placeId: input.placeId,
             date: input.date,
-            startTime: input.startTime ?? "20:30",
-            durationMinutes: input.durationMinutes ?? defaultDurationForCategory(place.category),
+            startTime: input.startTime ?? "08:00",
+            durationMinutes: input.durationMinutes ?? DEFAULT_PLACE_DURATION_MINUTES,
             itemType: "place",
             preferredByUserIds: input.preferredByUserIds ?? candidate?.addedByUserIds ?? [state.currentUserId],
           };
+          if (!isValidScheduleRange(nextItem)) {
+            result = "invalid-time";
+            return state;
+          }
+          if (findOverlappingItem(current, nextItem)) {
+            result = "overlap";
+            return state;
+          }
+
+          result = "success";
           return {
             itineraryByTripId: {
               ...state.itineraryByTripId,
-              [input.tripId]: [...current, nextItem],
+              [input.tripId]: sortItineraryItemsByDateAndTime([...current, nextItem]),
             },
           };
-        }),
-      removeItineraryItem: (tripId, itineraryItemId) =>
+        });
+
+        return result;
+      },
+      removeItineraryItem: (tripId, itineraryItemId) => {
+        let result: ItineraryMutationResult = "invalid-trip";
+
         set((state) => {
-          if (!state.tripsById[tripId]) return state;
+          const trip = state.tripsById[tripId];
+          if (!trip) return state;
+          if (trip.status === "completed") {
+            result = "trip-not-editable";
+            return state;
+          }
+          if (!trip.members.some((member) => member.userId === state.currentUserId)) {
+            result = "not-member";
+            return state;
+          }
+          const current = state.itineraryByTripId[tripId] ?? [];
+          if (!current.some((item) => item.id === itineraryItemId)) {
+            result = "invalid-item";
+            return state;
+          }
+          result = "success";
           return {
             itineraryByTripId: {
               ...state.itineraryByTripId,
-              [tripId]: (state.itineraryByTripId[tripId] ?? []).filter((item) => item.id !== itineraryItemId),
+              [tripId]: current.filter((item) => item.id !== itineraryItemId),
             },
           };
-        }),
-      updateItineraryItem: (tripId, itineraryItemId, patch) =>
+        });
+
+        return result;
+      },
+      updateItineraryItem: (tripId, itineraryItemId, patch) => {
+        let result: ItineraryMutationResult = "invalid-trip";
+
         set((state) => {
-          if (!state.tripsById[tripId]) return state;
+          const trip = state.tripsById[tripId];
+          if (!trip) return state;
+          if (trip.status === "completed") {
+            result = "trip-not-editable";
+            return state;
+          }
+          if (!trip.members.some((member) => member.userId === state.currentUserId)) {
+            result = "not-member";
+            return state;
+          }
+          const current = state.itineraryByTripId[tripId] ?? [];
+          const item = current.find((entry) => entry.id === itineraryItemId);
+          if (!item) {
+            result = "invalid-item";
+            return state;
+          }
+          const nextItem = { ...item, ...patch };
+          if (nextItem.placeId && !state.placesById[nextItem.placeId]) {
+            result = "invalid-place";
+            return state;
+          }
+          if (!getTripDates(trip.startDate, trip.endDate).includes(nextItem.date)) {
+            result = "invalid-date";
+            return state;
+          }
+          if (!isValidScheduleRange(nextItem)) {
+            result = "invalid-time";
+            return state;
+          }
+          if (nextItem.placeId && current.some((entry) => entry.id !== itineraryItemId && entry.placeId === nextItem.placeId)) {
+            result = "duplicate-place";
+            return state;
+          }
+          if (findOverlappingItem(current, nextItem, itineraryItemId)) {
+            result = "overlap";
+            return state;
+          }
+          result = "success";
           return {
             itineraryByTripId: {
               ...state.itineraryByTripId,
-              [tripId]: (state.itineraryByTripId[tripId] ?? []).map((item) =>
-                item.id === itineraryItemId ? { ...item, ...patch } : item,
+              [tripId]: sortItineraryItemsByDateAndTime(
+                current.map((entry) => (entry.id === itineraryItemId ? nextItem : entry)),
               ),
             },
           };
-        }),
+        });
+
+        return result;
+      },
       resetDemoData: () => set(createDemoData()),
     }),
     {
@@ -220,7 +374,6 @@ export const useDuriStore = create<DuriState>()(
         candidatesByTripId: state.candidatesByTripId,
         itineraryByTripId: state.itineraryByTripId,
         preferenceResultsByUserId: state.preferenceResultsByUserId,
-        analysesByTripId: state.analysesByTripId,
         savedPlaceIdsByUserId: state.savedPlaceIdsByUserId,
       }),
     },

@@ -14,7 +14,7 @@ import {
   TripRoomNotFound,
 } from "./TripRoomHomeSections";
 import type { CandidatePreviewView, SchedulePreviewView } from "./TripRoomHomeSections";
-import { selectTripStats } from "../store/selectors";
+import { selectTripAnalysis, selectTripStats } from "../store/selectors";
 import { useDuriStore } from "../store/useDuriStore";
 import { formatDayLabel } from "../utils/formatters";
 
@@ -37,7 +37,7 @@ export function TripRoomHomePage() {
   const placesById = useDuriStore((state) => state.placesById);
   const candidates = useDuriStore((state) => state.candidatesByTripId[tripId]);
   const itinerary = useDuriStore((state) => state.itineraryByTripId[tripId]);
-  const analysis = useDuriStore((state) => state.analysesByTripId[tripId]);
+  const preferenceResultsByUserId = useDuriStore((state) => state.preferenceResultsByUserId);
   const candidatesByTripId = useDuriStore((state) => state.candidatesByTripId);
   const itineraryByTripId = useDuriStore((state) => state.itineraryByTripId);
   const setActiveTrip = useDuriStore((state) => state.setActiveTrip);
@@ -53,6 +53,21 @@ export function TripRoomHomePage() {
   const stats = useMemo(
     () => selectTripStats({ ...useDuriStore.getState(), candidatesByTripId, itineraryByTripId }, tripId),
     [candidatesByTripId, itineraryByTripId, tripId],
+  );
+  const analysis = useMemo(
+    () =>
+      selectTripAnalysis(
+        {
+          ...useDuriStore.getState(),
+          usersById,
+          placesById,
+          candidatesByTripId,
+          itineraryByTripId,
+          preferenceResultsByUserId,
+        },
+        tripId,
+      ),
+    [candidatesByTripId, itineraryByTripId, placesById, preferenceResultsByUserId, tripId, trip, usersById],
   );
 
   const scheduledItemByPlaceId = useMemo(
@@ -156,7 +171,7 @@ export function TripRoomHomePage() {
         <RoomQuickActions tripId={trip.id} onExplore={activateTrip} />
         <CandidatePlacesPreview candidates={candidatePreviews} onExplore={activateTrip} />
         <DraftSchedulePreview items={schedulePreviews} tripId={trip.id} />
-        {analysis ? <DuriAnalysisSummary summary={analysis} to={`/trips/${trip.id}/workspace`} /> : <AnalysisEmptyState tripId={trip.id} />}
+        {analysis && (itinerary?.length ?? 0) > 0 ? <DuriAnalysisSummary summary={analysis} to={`/trips/${trip.id}/workspace`} /> : <AnalysisEmptyState tripId={trip.id} />}
         <NextActionCard {...nextAction} onClick={nextAction.to === "/explore" ? activateTrip : undefined} />
       </div>
     </div>
