@@ -12,5 +12,10 @@ export type {
   TripTransport,
 } from "./trip";
 export type { ItineraryItem, ItineraryItemType } from "./itinerary";
-export type { UserPreferenceResult } from "./preference";
+export type {
+  PersonalPreferenceAnswers,
+  PreferenceDimension,
+  PreferenceScore,
+  UserPreferenceResult,
+} from "./preference";
 export type { TripAnalysis } from "./analysis";

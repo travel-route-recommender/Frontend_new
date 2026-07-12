@@ -237,15 +237,21 @@ export function createDemoData(): DuriDomainState {
     preferenceResultsByUserId: {
       "user-soomin": {
         userId: "user-soomin",
+        answers: { pace: 0, budget: 1, mobility: 0, activity: 0, mealStyle: 1, planningStyle: 1 },
         profileType: "감성산책형",
         traits: ["느린 동선", "풍경", "카페"],
+        preferredTags: ["카페", "산책", "여유", "바다"],
         completedAt: "2026-07-01",
+        version: 1,
       },
       "user-jiyoon": {
         userId: "user-jiyoon",
+        answers: { pace: 0, budget: 1, mobility: 1, activity: 1, mealStyle: 1, planningStyle: 2 },
         profileType: "여유탐색형",
         traits: ["카페", "바다", "사진"],
+        preferredTags: ["명소", "사진", "카페", "산책"],
         completedAt: "2026-07-02",
+        version: 1,
       },
     },
     // 이전 persist schema와의 호환을 위해 필드는 유지하되, 실제 분석은 일정에서 동적으로 계산한다.

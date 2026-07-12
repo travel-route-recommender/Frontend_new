@@ -3,11 +3,17 @@ import { persist } from "zustand/middleware";
 import type {
   EntityId,
   ItineraryItem,
+  PersonalPreferenceAnswers,
   TripBudgetLevel,
   TripIntensity,
   TripRoom,
   TripTransport,
+  UserPreferenceResult,
 } from "../domain";
+import {
+  calculatePersonalPreferenceResult,
+  normalizeLegacyPreferenceResult,
+} from "../features/preferences";
 import {
   applySuggestionChanges,
   buildItineraryFingerprint,
@@ -81,6 +87,10 @@ type DuriActions = {
     patch: Partial<Omit<ItineraryItem, "id" | "tripId">>,
   ) => ItineraryMutationResult;
   applyDuriSuggestion: (tripId: EntityId, suggestion: DuriSuggestion) => SuggestionApplyResult;
+  savePersonalPreferenceResult: (
+    userId: EntityId | undefined,
+    answers: PersonalPreferenceAnswers,
+  ) => UserPreferenceResult | undefined;
   resetDemoData: () => void;
 };
 
@@ -92,6 +102,16 @@ function createItineraryId(state: DuriDomainState, tripId: EntityId, placeId: En
   let sequence = 1;
   while (existingIds.has(`${prefix}-${sequence}`)) sequence += 1;
   return `${prefix}-${sequence}`;
+}
+
+function migratePreferenceResults(value: unknown) {
+  if (!value || typeof value !== "object") return {};
+  return Object.fromEntries(
+    Object.entries(value as Record<EntityId, unknown>).flatMap(([userId, entry]) => {
+      if (!entry || typeof entry !== "object") return [];
+      return [[userId, normalizeLegacyPreferenceResult(userId, entry as Partial<UserPreferenceResult>)]];
+    }),
+  ) as Record<EntityId, UserPreferenceResult>;
 }
 
 export const useDuriStore = create<DuriState>()(
@@ -432,11 +452,50 @@ export const useDuriStore = create<DuriState>()(
 
         return result;
       },
+      savePersonalPreferenceResult: (userId, answers) => {
+        let saved: UserPreferenceResult | undefined;
+
+        set((state) => {
+          const targetUserId = userId ?? state.currentUserId;
+          if (targetUserId !== state.currentUserId || !state.usersById[targetUserId]) return state;
+          saved = calculatePersonalPreferenceResult(targetUserId, answers);
+          const tripsById = Object.fromEntries(
+            Object.entries(state.tripsById).map(([tripId, trip]) => [
+              tripId,
+              trip.members.some((member) => member.userId === targetUserId)
+                ? {
+                    ...trip,
+                    members: trip.members.map((member) => member.userId === targetUserId
+                      ? { ...member, preferenceStatus: "completed" as const }
+                      : member),
+                  }
+                : trip,
+            ]),
+          );
+          return {
+            preferenceResultsByUserId: {
+              ...state.preferenceResultsByUserId,
+              [targetUserId]: saved,
+            },
+            tripsById,
+          };
+        });
+
+        return saved;
+      },
       resetDemoData: () => set(createDemoData()),
     }),
     {
       name: "duri-mvp-store",
-      version: 1,
+      version: 2,
+      migrate: (persistedState) => {
+        if (!persistedState || typeof persistedState !== "object") return persistedState;
+        const state = persistedState as Partial<DuriDomainState>;
+        return {
+          ...state,
+          preferenceResultsByUserId: migratePreferenceResults(state.preferenceResultsByUserId),
+        };
+      },
       partialize: (state) => ({
         schemaVersion: state.schemaVersion,
         currentUserId: state.currentUserId,

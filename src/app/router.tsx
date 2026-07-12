@@ -14,6 +14,11 @@ import {
 } from "../pages/MainTabPages";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { PlaceDetailRoute } from "../pages/PlaceDetailRoute";
+import {
+  PersonalPreferenceResultPage,
+  PersonalPreferenceTestPage,
+  PreferenceTestHomePage,
+} from "../pages/PreferenceTestPages";
 
 export function AppRoutes() {
   return (
@@ -29,6 +34,9 @@ export function AppRoutes() {
         <Route path="duri" element={<DuriPage />} />
         <Route path="saved" element={<SavedPage />} />
         <Route path="mypage" element={<MyPage />} />
+        <Route path="tests" element={<PreferenceTestHomePage />} />
+        <Route path="tests/personal" element={<PersonalPreferenceTestPage />} />
+        <Route path="tests/personal/result" element={<PersonalPreferenceResultPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
       <Route path="trips/:tripId/workspace" element={<TripWorkspaceRoute />} />

@@ -86,10 +86,10 @@ export function MyPage() {
       eyebrow="마이페이지"
       title={`${currentUser?.name ?? "사용자"}님의 여행 취향`}
       description={`${preference?.profileType ?? "성향 진단 전"} · ${(preference?.traits ?? []).join("와 ")} 코스를 선호해요.`}
-      primaryLabel="테스트 다시 보기"
+      primaryLabel={preference ? "테스트 결과 보기" : "개인 테스트 시작"}
       secondaryLabel="프로필 편집"
       icon="profile"
-      primaryTo="/duri"
+      primaryTo={preference ? "/tests/personal/result" : "/tests/personal"}
       stats={[]}
     />
   );
