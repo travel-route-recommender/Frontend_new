@@ -3,6 +3,7 @@ import { DURI_ANALYSIS_CONFIG } from "./config";
 import { categoryStatusFromIssues, getItemEndMinutes, groupItineraryByDate, insufficientCategory, normalizeTrait } from "./shared";
 import type { AnalysisIssue, CategoryAnalysisResult, DuriAnalysisInput } from "./types";
 import { timeStringToMinutes } from "../../utils/schedule";
+import { buildGroupProfileEvidence } from "../group-preferences";
 
 const mealCategoryKeywords = ["음식점", "식당", "레스토랑", "한식", "양식", "일식", "중식", "분식"];
 const mealTagKeywords = ["음식", "맛집", "식사", "브런치", "한식", "양식", "일식", "중식", "분식"];
@@ -33,6 +34,7 @@ export function analyzeMeals(input: DuriAnalysisInput): CategoryAnalysisResult {
     return place ? isMealPlace(place) : false;
   }).length;
   let checkedWindowCount = 0;
+  const groupEvidence = buildGroupProfileEvidence(input.groupPlanningProfile, "mealStyle");
 
   for (const [date, items] of groupItineraryByDate(input.itinerary)) {
     if (!items.length) continue;
@@ -71,6 +73,7 @@ export function analyzeMeals(input: DuriAnalysisInput): CategoryAnalysisResult {
           { label: "누락 식사", value: window.label },
           { label: "검사 시간대", value: `${Math.floor(window.start / 60)}:${String(window.start % 60).padStart(2, "0")}–${Math.floor(window.end / 60)}:${String(window.end % 60).padStart(2, "0")}`, itemIds: adjacent.map((item) => item.id) },
           { label: "식사 후보 장소", value: `${mealCandidateCount}곳`, placeIds: input.candidates.flatMap((candidate) => (input.placesById[candidate.placeId] && isMealPlace(input.placesById[candidate.placeId]) ? [candidate.placeId] : [])) },
+          ...groupEvidence,
         ],
       });
     }
@@ -88,7 +91,7 @@ export function analyzeMeals(input: DuriAnalysisInput): CategoryAnalysisResult {
       affectedItemIds: input.itinerary.filter((item) => isMealItem(item, input.placesById)).map((item) => item.id),
       affectedPlaceIds: input.itinerary.flatMap((item) => (item.placeId && isMealItem(item, input.placesById) ? [item.placeId] : [])),
       affectedMemberIds: [],
-      evidence: [{ label: "검사한 식사 시간대", value: `${checkedWindowCount}개` }],
+      evidence: [{ label: "검사한 식사 시간대", value: `${checkedWindowCount}개` }, ...groupEvidence],
     });
   }
   const status = categoryStatusFromIssues(issues);

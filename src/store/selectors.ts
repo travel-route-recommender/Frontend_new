@@ -1,6 +1,7 @@
 import type { EntityId, Place, TripCandidate } from "../domain";
 import { analyzeTrip } from "../features/duri-analysis";
 import type { DuriAnalysisInput } from "../features/duri-analysis";
+import { diagnoseGroupPreferences } from "../features/group-preferences";
 import type { DuriState } from "./useDuriStore";
 
 const emptyEntityIds: EntityId[] = [];
@@ -119,6 +120,7 @@ export const selectTripAnalysisInput = (state: DuriState, tripId: EntityId): Dur
     candidates: state.candidatesByTripId[tripId] ?? [],
     itinerary: state.itineraryByTripId[tripId] ?? [],
     preferenceResults: state.preferenceResultsByUserId,
+    groupPreferenceDiagnosis: diagnoseGroupPreferences(trip, state.preferenceResultsByUserId),
   };
 };
 export const selectTripAnalysis = (state: DuriState, tripId: EntityId) => {

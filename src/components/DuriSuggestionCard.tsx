@@ -31,6 +31,7 @@ const changeLabel: Record<DuriSuggestion["changes"][number]["action"], string> =
 };
 
 export function DuriSuggestionCard({ suggestion, sourceIssueTitles, onPreview, onApply, onHide, isApplying = false }: DuriSuggestionCardProps) {
+  const reflectsGroupPreference = /동행자|그룹 성향|절충안|맛집 대기|선호/.test(suggestion.reason);
   return (
     <article className="rounded-[24px] border border-[#E2ECFA] bg-white p-4 shadow-[0_8px_18px_rgba(91,129,190,0.11)]">
       <div className="flex gap-3">
@@ -42,6 +43,7 @@ export function DuriSuggestionCard({ suggestion, sourceIssueTitles, onPreview, o
             <span className="rounded-full bg-[#EAF2FF] px-2 py-1 text-[9px] font-black text-[#4F86F7]">{priorityLabel[suggestion.priority]}</span>
             <span className="text-[9px] font-black text-[#8BA8D3]">변경 {suggestion.changes.length}개</span>
             {[...new Set(suggestion.changes.map((change) => changeLabel[change.action]))].map((label) => <span key={label} className="rounded-full bg-[#F3F7FC] px-2 py-1 text-[9px] font-black text-[#7694C3]">{label}</span>)}
+            {reflectsGroupPreference ? <span className="rounded-full bg-[#EAF3FF] px-2 py-1 text-[9px] font-black text-[#4388FF]">동행자 성향 반영</span> : null}
           </div>
           <h3 className="mt-2 text-[14px] font-black leading-5 text-[#213D90]">{suggestion.title}</h3>
           <p className="mt-1 text-[11px] font-bold leading-5 text-[#6F8AC2]">{suggestion.reason}</p>

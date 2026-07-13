@@ -60,6 +60,13 @@ export function DuriAnalysisWorkspace({ report, mode = "compact", onViewIssue, o
             <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black ${overall.className}`}>{overall.label}</span>
             <p className="mt-2 text-[14px] font-black leading-6 text-[#213D90]">{report.overallMessage}</p>
             <p className="mt-1 text-[11px] font-bold text-[#8BAFE4]">일정 {report.analyzedItemCount}개 분석</p>
+            <p className="mt-1 text-[9px] font-black text-[#6F95D0]">
+              {report.groupPlanningProfile.dataStatus === "complete"
+                ? "동행자 성향 반영"
+                : report.groupPlanningProfile.dataStatus === "partial"
+                  ? `${report.groupPlanningProfile.completedMemberCount}/${report.groupPlanningProfile.totalMemberCount}명 완료 응답 기준`
+                  : "응답이 더 모이면 동행자 성향을 반영할 수 있어요."}
+            </p>
           </div>
         </div>
         {onOpenSuggestions ? (
@@ -91,7 +98,10 @@ function CategoryCard({ result, expanded, onToggle, onViewIssue, onOpenSuggestio
   const Icon = meta.icon;
   const StatusIcon = status.icon;
   const actionableCount = result.issues.filter((issue) => issue.severity !== "info").length;
-  const evidence = result.issues.flatMap((issue) => issue.evidence).slice(0, 3);
+  const allEvidence = result.issues.flatMap((issue) => issue.evidence);
+  const isGroupEvidence = (label: string) => /그룹|성향 응답 기준|선호 차이|맛집 대기 기준/.test(label);
+  const evidence = [...allEvidence.filter((entry) => isGroupEvidence(entry.label)), ...allEvidence.filter((entry) => !isGroupEvidence(entry.label))].slice(0, 3);
+  const hasGroupPreferenceEvidence = result.issues.some((issue) => issue.evidence.some((entry) => /그룹|성향 응답 기준|선호 차이|맛집 대기 기준/.test(entry.label)));
 
   return (
     <article className="rounded-[24px] bg-white p-4 shadow-[0_8px_18px_rgba(91,129,190,0.11)]">
@@ -101,6 +111,7 @@ function CategoryCard({ result, expanded, onToggle, onViewIssue, onOpenSuggestio
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-[15px] font-black text-[#213D90]">{meta.label}</h3>
             <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-black ${status.className}`}><StatusIcon size={10} />{status.label}</span>
+            {hasGroupPreferenceEvidence ? <span className="rounded-full bg-[#EAF3FF] px-2.5 py-1 text-[9px] font-black text-[#4388FF]">동행자 성향 반영</span> : null}
           </div>
           <p className="mt-2 text-[12px] font-bold leading-5 text-[#6F8AC2]">{result.summary}</p>
         </div>
@@ -119,7 +130,7 @@ function CategoryCard({ result, expanded, onToggle, onViewIssue, onOpenSuggestio
             <div key={issue.id} className="rounded-[16px] border border-[#E3EDFA] bg-[#FBFDFF] p-3">
               <p className="text-[11px] font-black text-[#243C8F]">{issue.title}</p>
               <p className="mt-1 text-[10px] font-bold leading-4 text-[#7898CE]">{issue.summary}</p>
-              <div className="mt-2 space-y-1">{issue.evidence.slice(0, 3).map((entry, index) => <p key={`${entry.label}-${index}`} className="text-[9px] font-bold text-[#8CAADA]">· {entry.label}: {entry.value}</p>)}</div>
+              <div className="mt-2 space-y-1">{issue.evidence.slice(0, 5).map((entry, index) => <p key={`${entry.label}-${index}`} className="text-[9px] font-bold text-[#8CAADA]">· {entry.label}: {entry.value}</p>)}</div>
               <div className="mt-3 flex flex-wrap gap-3">
                 {onViewIssue && issue.affectedItemIds.length ? <button type="button" onClick={() => onViewIssue(issue)} className="flex items-center gap-1 text-[10px] font-black text-[#4388FF]">일정에서 보기<ArrowRight size={12} /></button> : null}
                 {onOpenSuggestions && issue.severity !== "info" ? <button type="button" onClick={() => onOpenSuggestions(issue)} className="flex items-center gap-1 text-[10px] font-black text-[#6E8FC7]">이 이슈 개선안 보기<Sparkles size={11} /></button> : null}

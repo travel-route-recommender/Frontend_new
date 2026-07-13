@@ -2,12 +2,44 @@ import { DURI_ANALYSIS_CONFIG } from "./config";
 import { categoryStatusFromIssues, getItemEndMinutes, groupItineraryByDate, insufficientCategory } from "./shared";
 import type { AnalysisIssue, CategoryAnalysisResult, DuriAnalysisInput } from "./types";
 import { timeStringToMinutes } from "../../utils/schedule";
+import { buildGroupProfileEvidence, canAdjustGroupThreshold, getGroupDimensionTone } from "../group-preferences";
 
 export function analyzeDensity(input: DuriAnalysisInput): CategoryAnalysisResult {
   if (input.itinerary.length < 2) return insufficientCategory("density", "일정이 더 모이면 하루 활동량과 휴식 간격을 분석할 수 있어요.");
   const issues: AnalysisIssue[] = [];
   let analyzableDayCount = 0;
   let analyzableItemCount = 0;
+  let densePlaceCount: number = DURI_ANALYSIS_CONFIG.density.densePlaceCount;
+  let denseActiveMinutes: number = DURI_ANALYSIS_CONFIG.density.denseActiveMinutes;
+  let maxConsecutiveItems: number = DURI_ANALYSIS_CONFIG.density.maxConsecutiveItemsWithoutBreak;
+  let longActivityStreakMinutes: number = DURI_ANALYSIS_CONFIG.density.longActivityStreakMinutes;
+  if (canAdjustGroupThreshold(input.groupPlanningProfile, "pace")) {
+    const tone = getGroupDimensionTone(input.groupPlanningProfile, "pace");
+    if (tone === "low") {
+      densePlaceCount -= 1;
+      denseActiveMinutes -= 30;
+      longActivityStreakMinutes -= 30;
+    } else if (tone === "high") {
+      densePlaceCount += 1;
+      denseActiveMinutes += 30;
+      longActivityStreakMinutes += 30;
+      maxConsecutiveItems += 1;
+    }
+  }
+  if (canAdjustGroupThreshold(input.groupPlanningProfile, "activity")) {
+    const tone = getGroupDimensionTone(input.groupPlanningProfile, "activity");
+    if (tone === "low") {
+      maxConsecutiveItems = Math.max(maxConsecutiveItems - 1, 2);
+      longActivityStreakMinutes -= 30;
+    } else if (tone === "high") {
+      longActivityStreakMinutes += 30;
+    }
+  }
+  const groupEvidence = [
+    ...buildGroupProfileEvidence(input.groupPlanningProfile, "pace"),
+    ...buildGroupProfileEvidence(input.groupPlanningProfile, "activity"),
+    ...buildGroupProfileEvidence(input.groupPlanningProfile, "planningStyle"),
+  ];
 
   for (const [date, dayItems] of groupItineraryByDate(input.itinerary)) {
     const items = dayItems.filter((item) => Number.isFinite(timeStringToMinutes(item.startTime)) && item.durationMinutes > 0);
@@ -40,8 +72,8 @@ export function analyzeDensity(input: DuriAnalysisInput): CategoryAnalysisResult
     });
 
     const veryDense = placeCount >= DURI_ANALYSIS_CONFIG.density.veryDensePlaceCount || occupiedMinutes >= DURI_ANALYSIS_CONFIG.density.veryDenseActiveMinutes;
-    const dense = placeCount >= DURI_ANALYSIS_CONFIG.density.densePlaceCount || occupiedMinutes >= DURI_ANALYSIS_CONFIG.density.denseActiveMinutes;
-    const longStreak = maxStreakCount > DURI_ANALYSIS_CONFIG.density.maxConsecutiveItemsWithoutBreak || maxStreakMinutes >= DURI_ANALYSIS_CONFIG.density.longActivityStreakMinutes;
+    const dense = placeCount >= densePlaceCount || occupiedMinutes >= denseActiveMinutes;
+    const longStreak = maxStreakCount > maxConsecutiveItems || maxStreakMinutes >= longActivityStreakMinutes;
     const needsAttention = dense || longStreak;
     issues.push({
       id: `density-${date}`,
@@ -58,6 +90,7 @@ export function analyzeDensity(input: DuriAnalysisInput): CategoryAnalysisResult
         { label: "장소 일정", value: `${placeCount}개`, itemIds: items.map((item) => item.id) },
         { label: "일정 점유시간", value: `${Math.round(occupiedMinutes / 30) / 2}시간` },
         { label: "일정 범위·휴식", value: `${Math.floor(firstStart / 60)}:${String(firstStart % 60).padStart(2, "0")}–${Math.floor(lastEnd / 60)}:${String(lastEnd % 60).padStart(2, "0")} · 45분 이상 ${meaningfulBreaks}회` },
+        ...groupEvidence,
       ],
     });
   }

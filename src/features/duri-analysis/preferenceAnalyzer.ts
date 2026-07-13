@@ -3,7 +3,7 @@ import { DURI_ANALYSIS_CONFIG } from "./config";
 import { categoryStatusFromIssues, insufficientCategory, normalizeTrait } from "./shared";
 import type { AnalysisEvidence, AnalysisIssue, CategoryAnalysisResult, DuriAnalysisInput } from "./types";
 
-type PreferenceSource = "preferred" | "candidate" | "traits";
+type PreferenceSource = "preferred" | "candidate" | "tags";
 
 function resolvePreferredMemberIds(item: ItineraryItem, input: DuriAnalysisInput): { ids: EntityId[]; source?: PreferenceSource } {
   const memberIds = new Set(input.trip.members.map((member) => member.userId));
@@ -16,12 +16,13 @@ function resolvePreferredMemberIds(item: ItineraryItem, input: DuriAnalysisInput
 
   const place = item.placeId ? input.placesById[item.placeId] : undefined;
   if (!place) return { ids: [] };
-  const placeTerms = [place.category, ...place.tags].map(normalizeTrait);
-  const traitMatches = input.trip.members.flatMap((member) => {
-    const traits = input.preferenceResults[member.userId]?.traits ?? [];
-    return traits.some((trait) => placeTerms.some((term) => term.includes(normalizeTrait(trait)) || normalizeTrait(trait).includes(term))) ? [member.userId] : [];
+  const placeTags = place.tags.map(normalizeTrait);
+  const tagMatches = input.trip.members.flatMap((member) => {
+    const preferredTags = input.preferenceResults[member.userId]?.preferredTags ?? [];
+    const matchCount = preferredTags.filter((tag) => placeTags.includes(normalizeTrait(tag))).length;
+    return matchCount >= 2 ? [member.userId] : [];
   });
-  return traitMatches.length ? { ids: traitMatches, source: "traits" } : { ids: [] };
+  return tagMatches.length ? { ids: tagMatches, source: "tags" } : { ids: [] };
 }
 
 export function analyzePreferences(input: DuriAnalysisInput): CategoryAnalysisResult {
@@ -32,7 +33,7 @@ export function analyzePreferences(input: DuriAnalysisInput): CategoryAnalysisRe
   const counts = Object.fromEntries(memberIds.map((memberId) => [memberId, 0])) as Record<EntityId, number>;
   const itemIdsByMember = Object.fromEntries(memberIds.map((memberId) => [memberId, []])) as Record<EntityId, EntityId[]>;
   const placeIdsByMember = Object.fromEntries(memberIds.map((memberId) => [memberId, []])) as Record<EntityId, EntityId[]>;
-  const sourceCounts: Record<PreferenceSource, number> = { preferred: 0, candidate: 0, traits: 0 };
+  const sourceCounts: Record<PreferenceSource, number> = { preferred: 0, candidate: 0, tags: 0 };
   let analyzableItems = 0;
 
   for (const item of input.itinerary) {
@@ -116,6 +117,6 @@ export function analyzePreferences(input: DuriAnalysisInput): CategoryAnalysisRe
     ? "일정 선호 응답"
     : sourceCounts.candidate
       ? "후보를 담은 사람"
-      : "성향 태그 일치";
+      : "선호 태그 2개 이상 일치";
   return { category: "preference", status, summary: status === "good" ? `${sourceLabel} 기준으로 동행자 선호가 고르게 반영되어 있어요.` : `${sourceLabel} 기준으로 참여자별 반영 정도를 조금 더 맞춰 보세요.`, issues };
 }

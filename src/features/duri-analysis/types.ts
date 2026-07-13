@@ -7,6 +7,7 @@ import type {
   User,
   UserPreferenceResult,
 } from "../../domain";
+import type { GroupPlanningProfile, GroupPreferenceDiagnosis } from "../group-preferences";
 
 export type AnalysisStatus = "good" | "attention" | "warning" | "insufficient-data";
 export type AnalysisCategory = "route" | "density" | "meal" | "preference";
@@ -47,6 +48,7 @@ export interface DuriAnalysisResult {
   overallStatus: AnalysisStatus;
   overallMessage: string;
   analyzedItemCount: number;
+  groupPlanningProfile: GroupPlanningProfile;
   route: CategoryAnalysisResult;
   density: CategoryAnalysisResult;
   meal: CategoryAnalysisResult;
@@ -60,4 +62,6 @@ export interface DuriAnalysisInput {
   candidates: TripCandidate[];
   itinerary: ItineraryItem[];
   preferenceResults: Record<EntityId, UserPreferenceResult>;
+  groupPreferenceDiagnosis?: GroupPreferenceDiagnosis;
+  groupPlanningProfile?: GroupPlanningProfile;
 }

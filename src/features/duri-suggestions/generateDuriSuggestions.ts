@@ -3,6 +3,7 @@ import type { EntityId, ItineraryItem, Place, TripCandidate } from "../../domain
 import { DURI_ANALYSIS_CONFIG, extractStableArea, isMealPlace } from "../duri-analysis";
 import { normalizeTrait } from "../duri-analysis/shared";
 import type { AnalysisIssue } from "../duri-analysis";
+import { getGroupDimensionTone } from "../group-preferences";
 import {
   findNextAvailableSlot,
   findOverlappingItem,
@@ -126,6 +127,12 @@ export function buildRouteReorderSuggestion(
   if (!best) return undefined;
   const leftPlace = best.left.placeId ? input.placesById[best.left.placeId] : undefined;
   const rightPlace = best.right.placeId ? input.placesById[best.right.placeId] : undefined;
+  const mobilityProfile = input.analysis.groupPlanningProfile;
+  const routeReason = mobilityProfile.mobility.spread === 2 && mobilityProfile.dataStatus !== "insufficient"
+    ? "이동 범위에 대한 차이를 고려해 기존 시간 슬롯 안에서만 순서를 조정하는 절충안이에요."
+    : getGroupDimensionTone(mobilityProfile, "mobility") === "low" && mobilityProfile.dataStatus === "complete"
+      ? "가까운 동선을 선호하는 그룹 성향을 고려했어요."
+      : "";
   const changes: ScheduleChangePreview[] = [
     {
       itemId: best.left.id,
@@ -148,7 +155,7 @@ export function buildRouteReorderSuggestion(
     priority: issuePriority(issue),
     title: `${leftPlace?.name ?? "두 장소"}와 ${rightPlace?.name ?? "다음 장소"} 순서 바꾸기`,
     summary: "인접한 두 일정의 시간만 교환해 같은 권역을 다시 오가는 흐름을 줄여요.",
-    reason: `${issue.title} · 권역 전환을 ${baseScore}회에서 ${best.score}회로 줄일 수 있어요.`,
+    reason: `${issue.title} · 권역 전환을 ${baseScore}회에서 ${best.score}회로 줄일 수 있어요.${routeReason ? ` ${routeReason}` : ""}`,
     affectedItemIds: [best.left.id, best.right.id],
     affectedPlaceIds: [best.left.placeId, best.right.placeId].filter((id): id is string => Boolean(id)),
     changes,
@@ -161,10 +168,9 @@ function mealWindowForIssue(issue: AnalysisIssue) {
     .find((window) => window.label === label);
 }
 
-export function findMealSlot(itinerary: ItineraryItem[], date: string, issue: AnalysisIssue) {
+export function findMealSlot(itinerary: ItineraryItem[], date: string, issue: AnalysisIssue, durationMinutes = 60) {
   const window = mealWindowForIssue(issue);
   if (!window) return undefined;
-  const durationMinutes = 60;
   for (let minutes = window.start; minutes + durationMinutes <= window.end; minutes += 30) {
     const startTime = minutesToTimeString(minutes);
     if (!findOverlappingItem(itinerary, { date, startTime, durationMinutes })) {
@@ -174,17 +180,22 @@ export function findMealSlot(itinerary: ItineraryItem[], date: string, issue: An
   return undefined;
 }
 
-function buildMealSuggestion(input: DuriSuggestionInput, issue: AnalysisIssue): DuriSuggestion | undefined {
+function buildMealSuggestion(
+  input: DuriSuggestionInput,
+  issue: AnalysisIssue,
+  options: { forceGeneric?: boolean; durationMinutes?: number; reasonSuffix?: string } = {},
+): DuriSuggestion | undefined {
   if (!issue.date || issue.severity === "info") return undefined;
-  const slot = findMealSlot(input.itinerary, issue.date, issue);
+  const durationMinutes = options.durationMinutes ?? 60;
+  const slot = findMealSlot(input.itinerary, issue.date, issue, durationMinutes);
   if (!slot) {
     return createSuggestion(input, {
       sourceIssueIds: [issue.id],
       type: "insert-meal",
       priority: issuePriority(issue),
       title: `${mealWindowForIssue(issue)?.label ?? "식사"} 시간을 추가해볼까요?`,
-      summary: "현재 식사 시간대에는 충돌 없는 60분 슬롯이 없어요.",
-      reason: issue.summary,
+      summary: `현재 식사 시간대에는 충돌 없는 ${durationMinutes}분 슬롯이 없어요.`,
+      reason: `${issue.summary}${options.reasonSuffix ? ` ${options.reasonSuffix}` : ""}`,
       affectedItemIds: issue.affectedItemIds,
       affectedPlaceIds: issue.affectedPlaceIds,
       changes: [],
@@ -193,7 +204,7 @@ function buildMealSuggestion(input: DuriSuggestionInput, issue: AnalysisIssue): 
     });
   }
   const scheduledPlaceIds = new Set(input.itinerary.flatMap((item) => item.placeId ? [item.placeId] : []));
-  const mealCandidate = [...input.candidates]
+  const mealCandidate = options.forceGeneric ? undefined : [...input.candidates]
     .filter((candidate) => !scheduledPlaceIds.has(candidate.placeId) && Boolean(input.placesById[candidate.placeId]) && isMealPlace(input.placesById[candidate.placeId]))
     .sort((left, right) => left.placeId.localeCompare(right.placeId))[0];
   const place = mealCandidate ? input.placesById[mealCandidate.placeId] : undefined;
@@ -213,12 +224,29 @@ function buildMealSuggestion(input: DuriSuggestionInput, issue: AnalysisIssue): 
     type: "insert-meal",
     priority: issuePriority(issue),
     title: place ? `${place.name}에서 ${slot.label} 일정 추가` : `${slot.label} 식사 시간 추가`,
-    summary: place ? `여행방 후보 장소를 ${slot.startTime} 빈 시간에 반영해요.` : `장소를 정하지 않고 ${slot.startTime}부터 60분을 식사 시간으로 비워둬요.`,
-    reason: issue.summary,
+    summary: place ? `여행방 후보 장소를 ${slot.startTime} 빈 시간에 반영해요.` : `장소를 정하지 않고 ${slot.startTime}부터 ${slot.durationMinutes}분을 식사 시간으로 비워둬요.`,
+    reason: `${issue.summary}${options.reasonSuffix ? ` ${options.reasonSuffix}` : ""}`,
     affectedItemIds: [itemId],
     affectedPlaceIds: place ? [place.id] : [],
     changes: [{ itemId, placeId: place?.id, action: "add", after }],
   });
+}
+
+function buildMealSuggestions(input: DuriSuggestionInput, issue: AnalysisIssue) {
+  const profile = input.analysis.groupPlanningProfile;
+  const tone = getGroupDimensionTone(profile, "mealStyle");
+  if (profile.mealStyle.spread === 2 && profile.dataStatus !== "insufficient") {
+    const reasonSuffix = "맛집 대기 기준이 달라 90분 여유를 둔 두 가지 선택지를 준비했어요.";
+    return [
+      buildMealSuggestion(input, issue, { durationMinutes: 90, reasonSuffix }),
+      buildMealSuggestion(input, issue, { durationMinutes: 90, forceGeneric: true, reasonSuffix }),
+    ].filter((suggestion): suggestion is DuriSuggestion => Boolean(suggestion));
+  }
+  if (profile.dataStatus === "complete" && tone === "low") {
+    return [buildMealSuggestion(input, issue, { forceGeneric: true, reasonSuffix: "대기 부담을 줄이고 싶은 그룹 성향을 고려해 식사 시간을 먼저 확보해요." })].filter((suggestion): suggestion is DuriSuggestion => Boolean(suggestion));
+  }
+  const reasonSuffix = profile.dataStatus === "complete" && tone === "high" ? "후보 맛집을 선호하는 그룹 성향을 고려했어요." : undefined;
+  return [buildMealSuggestion(input, issue, { reasonSuffix })].filter((suggestion): suggestion is DuriSuggestion => Boolean(suggestion));
 }
 
 export function findRestSlot(itinerary: ItineraryItem[], date: string) {
@@ -251,6 +279,23 @@ function buildDensitySuggestions(input: DuriSuggestionInput, issue: AnalysisIssu
   const dayItems = sortItineraryItemsByDateAndTime(input.itinerary.filter((item) => item.date === issue.date));
   if (dayItems.length < 2) return [];
   const suggestions: DuriSuggestion[] = [];
+  const profile = input.analysis.groupPlanningProfile;
+  const activityTone = getGroupDimensionTone(profile, "activity");
+  const planningTone = getGroupDimensionTone(profile, "planningStyle");
+  const preferRest = profile.dataStatus !== "insufficient" && (
+    activityTone === "low" ||
+    profile.activity.spread === 2 ||
+    planningTone === "high" ||
+    profile.planningStyle.spread === 2
+  );
+  const freeTime = profile.dataStatus !== "insufficient" && (planningTone === "high" || profile.planningStyle.spread === 2);
+  const compromiseReason = profile.activity.spread === 2 || profile.planningStyle.spread === 2
+    ? "동행자의 활동·계획 방식 차이를 고려해 일정 일부는 유지하고 휴식 구간을 두는 절충안이에요."
+    : activityTone === "low"
+      ? "머무는 활동을 선호하는 그룹 성향을 고려했어요."
+      : freeTime
+        ? "현장에서 유연하게 결정할 수 있도록 자유 시간을 남겨요."
+        : "";
   const last = dayItems[dayItems.length - 1];
   const currentEnd = timeStringToMinutes(last.startTime) + last.durationMinutes;
   const movedStart = findNextAvailableSlot({
@@ -267,7 +312,7 @@ function buildDensitySuggestions(input: DuriSuggestionInput, issue: AnalysisIssu
       priority: issuePriority(issue),
       title: "마지막 일정을 옮겨 휴식 간격 확보",
       summary: `${last.startTime} 일정을 ${movedStart}로 옮겨 앞 일정과 1시간 이상 간격을 만들어요.`,
-      reason: issue.summary,
+      reason: `${issue.summary}${compromiseReason ? ` ${compromiseReason}` : ""}`,
       affectedItemIds: [last.id],
       affectedPlaceIds: last.placeId ? [last.placeId] : [],
       changes: [{ itemId: last.id, placeId: last.placeId, action: "move", before: itemState(last), after: { ...itemState(last), startTime: movedStart } }],
@@ -281,12 +326,12 @@ function buildDensitySuggestions(input: DuriSuggestionInput, issue: AnalysisIssu
       sourceIssueIds: [issue.id],
       type: "insert-rest",
       priority: issuePriority(issue),
-      title: `일정 사이에 ${restSlot.durationMinutes}분 휴식 추가`,
-      summary: `${restSlot.startTime}부터 비어 있는 시간을 휴식 블록으로 남겨 연속 활동을 나눠요.`,
-      reason: issue.summary,
+      title: `일정 사이에 ${restSlot.durationMinutes}분 ${freeTime ? "자유 시간" : "휴식"} 추가`,
+      summary: `${restSlot.startTime}부터 비어 있는 시간을 ${freeTime ? "자유 시간" : "휴식 블록"}으로 남겨 연속 활동을 나눠요.`,
+      reason: `${issue.summary}${compromiseReason ? ` ${compromiseReason}` : ""}`,
       affectedItemIds: [itemId],
       affectedPlaceIds: [],
-      changes: [{ itemId, action: "add", after: { date: issue.date, startTime: restSlot.startTime, durationMinutes: restSlot.durationMinutes, itemType: "rest", preferredByUserIds: [], note: "휴식 시간" } }],
+      changes: [{ itemId, action: "add", after: { date: issue.date, startTime: restSlot.startTime, durationMinutes: restSlot.durationMinutes, itemType: "rest", preferredByUserIds: [], note: freeTime ? "자유 시간" : "휴식 시간" } }],
     }));
   }
 
@@ -320,26 +365,27 @@ function buildDensitySuggestions(input: DuriSuggestionInput, issue: AnalysisIssu
       }));
     }
   }
-  return suggestions.slice(0, 2);
+  return suggestions
+    .sort((left, right) => preferRest ? Number(right.type === "insert-rest") - Number(left.type === "insert-rest") : 0)
+    .slice(0, 2);
 }
 
-function placeMatchesMemberTraits(place: Place, memberId: EntityId, input: DuriSuggestionInput) {
-  const terms = [place.category, ...place.tags].map(normalizeTrait);
-  return (input.preferenceResults[memberId]?.traits ?? []).some((trait) => {
-    const normalized = normalizeTrait(trait);
-    return terms.some((term) => term.includes(normalized) || normalized.includes(term));
-  });
+function getMatchedPreferredTags(place: Place, memberId: EntityId, input: DuriSuggestionInput) {
+  const placeTags = new Set(place.tags.map(normalizeTrait));
+  return (input.preferenceResults[memberId]?.preferredTags ?? [])
+    .filter((tag) => placeTags.has(normalizeTrait(tag)));
 }
 
 function findPreferenceCandidates(input: DuriSuggestionInput, memberId: EntityId) {
   const scheduledPlaceIds = new Set(input.itinerary.flatMap((item) => item.placeId ? [item.placeId] : []));
   return [...input.candidates]
     .filter((candidate) => !scheduledPlaceIds.has(candidate.placeId) && input.placesById[candidate.placeId]?.regionId === input.trip.regionId)
-    .map((candidate) => ({
-      candidate,
-      place: input.placesById[candidate.placeId],
-      score: (candidate.addedByUserIds.includes(memberId) ? 4 : 0) + (placeMatchesMemberTraits(input.placesById[candidate.placeId], memberId, input) ? 2 : 0),
-    }))
+    .map((candidate) => {
+      const place = input.placesById[candidate.placeId];
+      const addedByMember = candidate.addedByUserIds.includes(memberId);
+      const matchedTags = getMatchedPreferredTags(place, memberId, input);
+      return { candidate, place, addedByMember, matchedTags, score: addedByMember ? 100 + matchedTags.length : matchedTags.length };
+    })
     .filter((entry) => entry.score > 0)
     .sort((left, right) => right.score - left.score || left.place.id.localeCompare(right.place.id));
 }
@@ -355,6 +401,11 @@ function buildPreferenceSuggestion(input: DuriSuggestionInput, issue: AnalysisIs
   const selected = preferenceCandidates[0];
   if (!selected) return undefined;
   const memberName = input.members.find((member) => member.id === memberId)?.name ?? "참여자";
+  const preferenceReason = selected.addedByMember
+    ? `${memberName}님이 직접 담은 후보를 우선했어요.`
+    : selected.matchedTags.length
+      ? `${memberName}님의 성향과 이 장소의 ${selected.matchedTags.map((tag) => `#${tag}`).join(" · ")} 태그가 잘 맞아요.`
+      : `${memberName}님의 선호 근거를 고려했어요.`;
   const tripDates = getTripDates(input.trip.startDate, input.trip.endDate);
   const durationMinutes = DEFAULT_PLACE_DURATION_MINUTES;
   const slot = tripDates
@@ -373,7 +424,7 @@ function buildPreferenceSuggestion(input: DuriSuggestionInput, issue: AnalysisIs
       priority: issuePriority(issue),
       title: `${memberName}님이 선호한 ${selected.place.name} 추가`,
       summary: `${slot.date} ${slot.startTime} 빈 시간에 후보 장소를 반영할 수 있어요.`,
-      reason: `${issue.title} 후보를 담은 사람과 성향 태그를 기준으로 골랐어요.`,
+      reason: `${issue.title} ${preferenceReason}`,
       affectedItemIds: [itemId],
       affectedPlaceIds: [selected.place.id],
       changes: [{ itemId, placeId: selected.place.id, action: "add", after: { date: slot.date, startTime: slot.startTime, durationMinutes, placeId: selected.place.id, itemType: "place", preferredByUserIds: [...new Set([...selected.candidate.addedByUserIds, memberId])] } }],
@@ -398,7 +449,7 @@ function buildPreferenceSuggestion(input: DuriSuggestionInput, issue: AnalysisIs
     priority: issuePriority(issue),
     title: `${previousPlace?.name ?? "기존 장소"} 대신 ${replacementSelected.place.name}`,
     summary: "날짜와 시간, 체류시간은 유지하고 같은 카테고리의 후보 장소로 바꿔요.",
-    reason: `${memberName}님의 선호를 반영하면서 일정 밀도를 늘리지 않는 선택지예요.`,
+    reason: `${memberName}님의 선호를 반영하면서 일정 밀도를 늘리지 않는 선택지예요. ${replacementSelected.addedByMember ? "직접 담은 후보를 우선했어요." : replacementSelected.matchedTags.map((tag) => `#${tag}`).join(" · ") + " 태그를 보조 근거로 사용했어요."}`,
     affectedItemIds: [replaceTarget.id],
     affectedPlaceIds: [replaceTarget.placeId, replacementSelected.place.id].filter((id): id is string => Boolean(id)),
     changes: [{ itemId: replaceTarget.id, placeId: replacementSelected.place.id, action: "replace", before: itemState(replaceTarget), after: { ...itemState(replaceTarget), placeId: replacementSelected.place.id, preferredByUserIds: [...new Set([...replacementSelected.candidate.addedByUserIds, memberId])] } }],
@@ -423,7 +474,7 @@ export function generateDuriSuggestions(input: DuriSuggestionInput): DuriSuggest
     preference: input.analysis.preference.issues.filter((issue) => issue.severity !== "info"),
   };
   const suggestions = [
-    ...actionable.meal.flatMap((issue) => buildMealSuggestion(input, issue) ?? []),
+    ...actionable.meal.flatMap((issue) => buildMealSuggestions(input, issue)),
     ...actionable.density.flatMap((issue) => buildDensitySuggestions(input, issue)),
     ...actionable.route.flatMap((issue) => buildRouteReorderSuggestion(input, issue) ?? []),
     ...actionable.preference.flatMap((issue) => buildPreferenceSuggestion(input, issue) ?? []),
