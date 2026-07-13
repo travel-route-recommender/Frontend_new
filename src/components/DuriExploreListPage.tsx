@@ -13,6 +13,7 @@ import {
 } from "../utils/explore";
 import { formatTripDateRange } from "../utils/formatters";
 import { ActionToast } from "./ActionToast";
+import { EmptyState } from "./EmptyState";
 import { PlaceCard } from "./PlaceCard";
 
 export function DuriExploreListPage() {
@@ -150,11 +151,13 @@ export function DuriExploreListPage() {
             })}
           </div>
         ) : (
-          <div className="rounded-[24px] bg-white px-5 py-8 text-center shadow-[0_8px_18px_rgba(79,134,247,0.1)]">
-            <Search size={24} className="mx-auto text-[#91BFF5]" />
-            <h3 className="mt-3 text-[16px] font-black text-[#243C8F]">검색 결과가 없어요</h3>
-            <p className="mt-1 text-[12px] font-bold text-[#8CAADA]">검색어나 필터를 바꿔 다시 찾아보세요.</p>
-          </div>
+          <EmptyState
+            icon={Search}
+            title="검색 결과가 없어요"
+            description="검색어나 필터를 바꿔 다시 찾아보세요."
+            actionLabel="검색 조건 초기화"
+            onAction={() => setSearchParams(new URLSearchParams(), { replace: true })}
+          />
         )}
       </section>
 

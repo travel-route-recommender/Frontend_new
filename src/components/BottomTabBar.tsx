@@ -1,8 +1,10 @@
 import type { LucideIcon } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export type BottomTab = {
   label: string;
   icon: LucideIcon;
+  to: string;
   active?: boolean;
 };
 
@@ -22,8 +24,10 @@ export function BottomTabBar({ tabs, variant = "default" }: BottomTabBarProps) {
     >
       <div className="grid grid-cols-4 gap-1">
         {tabs.map((tab) => (
-          <button
+          <Link
             key={tab.label}
+            to={tab.to}
+            aria-current={tab.active ? "page" : undefined}
             className={`flex flex-col items-center justify-center gap-1 text-[11px] font-black transition ${
               isCompact ? "min-h-[58px]" : "min-h-[64px]"
             } ${tab.active ? "text-[#4F86F7]" : "text-[#B6D3F8]"}`}
@@ -38,7 +42,7 @@ export function BottomTabBar({ tabs, variant = "default" }: BottomTabBarProps) {
               <tab.icon size={tab.active ? 27 : isCompact ? 21 : 23} strokeWidth={2.35} />
             </span>
             <span className={tab.active ? "text-[11px] text-[#4F86F7]" : "text-[10px]"}>{tab.label}</span>
-          </button>
+          </Link>
         ))}
       </div>
     </nav>

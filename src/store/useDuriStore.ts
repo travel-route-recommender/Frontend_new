@@ -12,7 +12,6 @@ import type {
 } from "../domain";
 import {
   calculatePersonalPreferenceResult,
-  normalizeLegacyPreferenceResult,
 } from "../features/preferences";
 import {
   applySuggestionChanges,
@@ -23,6 +22,7 @@ import type {
   SuggestionApplyResult,
 } from "../features/duri-suggestions";
 import { createDemoData, type DuriDomainState } from "../mocks/demoData";
+import { normalizePersistedState } from "./normalizePersistedState";
 import { DEFAULT_PLACE_DURATION_MINUTES } from "../data/workspaceSchedule";
 import { isValidISODate } from "../utils/formatters";
 import { createUniqueEntityId } from "../utils/ids";
@@ -102,16 +102,6 @@ function createItineraryId(state: DuriDomainState, tripId: EntityId, placeId: En
   let sequence = 1;
   while (existingIds.has(`${prefix}-${sequence}`)) sequence += 1;
   return `${prefix}-${sequence}`;
-}
-
-function migratePreferenceResults(value: unknown) {
-  if (!value || typeof value !== "object") return {};
-  return Object.fromEntries(
-    Object.entries(value as Record<EntityId, unknown>).flatMap(([userId, entry]) => {
-      if (!entry || typeof entry !== "object") return [];
-      return [[userId, normalizeLegacyPreferenceResult(userId, entry as Partial<UserPreferenceResult>)]];
-    }),
-  ) as Record<EntityId, UserPreferenceResult>;
 }
 
 export const useDuriStore = create<DuriState>()(
@@ -488,15 +478,12 @@ export const useDuriStore = create<DuriState>()(
     }),
     {
       name: "duri-mvp-store",
-      version: 2,
-      migrate: (persistedState) => {
-        if (!persistedState || typeof persistedState !== "object") return persistedState;
-        const state = persistedState as Partial<DuriDomainState>;
-        return {
-          ...state,
-          preferenceResultsByUserId: migratePreferenceResults(state.preferenceResultsByUserId),
-        };
-      },
+      version: 3,
+      migrate: (persistedState) => normalizePersistedState(persistedState),
+      merge: (persistedState, currentState) => ({
+        ...currentState,
+        ...normalizePersistedState(persistedState),
+      }),
       partialize: (state) => ({
         schemaVersion: state.schemaVersion,
         currentUserId: state.currentUserId,

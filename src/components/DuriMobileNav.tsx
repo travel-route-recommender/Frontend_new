@@ -13,13 +13,22 @@ const navItems = [
 
 export function DuriMobileNav() {
   const location = useLocation();
+  const activeKey: MobileNavKey = location.pathname.startsWith("/trips")
+    ? "trips"
+    : location.pathname.startsWith("/duri")
+      ? "duri"
+      : location.pathname.startsWith("/saved")
+        ? "saved"
+        : location.pathname.startsWith("/mypage") || location.pathname.startsWith("/tests")
+          ? "profile"
+          : "home";
 
   return (
     <nav className="absolute inset-x-4 bottom-3 z-30 rounded-[32px] bg-white px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_18px_36px_rgba(87,130,198,0.24)]">
       <div className="grid grid-cols-5 items-end gap-1">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to);
+          const isActive = item.key === activeKey;
 
           return (
             <NavLink

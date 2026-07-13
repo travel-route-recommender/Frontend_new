@@ -12,6 +12,7 @@ import {
 import { useDuriStore } from "../store/useDuriStore";
 import { formatTripDateRange, formatTripStatus } from "../utils/formatters";
 import { TravelRoomCard } from "./TravelRoomCard";
+import { EmptyState } from "./EmptyState";
 
 export function TripListPage() {
   const planningTrips = useDuriStore(useShallow(selectPlanningTripsForCurrentUser));
@@ -79,9 +80,14 @@ export function TripListPage() {
             />
           ))
         ) : (
-          <div className="rounded-[24px] bg-white px-5 py-6 text-center shadow-[0_8px_18px_rgba(79,134,247,0.08)]">
-            <p className="text-[13px] font-bold text-[#8CAADA]">아직 지난 여행이 없어요.</p>
-          </div>
+          <EmptyState
+            icon={Building2}
+            compact
+            title="아직 지난 여행이 없어요."
+            description="새 여행을 만들면 완료된 여행도 이곳에서 모아볼 수 있어요."
+            actionLabel="새 여행방 만들기"
+            actionTo="/trips/new"
+          />
         )}
       </TripSection>
     </div>

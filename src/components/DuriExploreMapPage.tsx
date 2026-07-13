@@ -10,6 +10,7 @@ import {
   normalizeExploreFilter,
   updateExploreSearchParams,
 } from "../utils/explore";
+import { EmptyState } from "./EmptyState";
 
 export function DuriExploreMapPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -63,7 +64,7 @@ export function DuriExploreMapPage() {
   const listPath = createExplorePath("/explore", searchParams);
 
   return (
-    <div className="relative -mt-1 h-[calc(100vh-76px)] min-h-[704px] overflow-hidden bg-[#EAF2FC]">
+    <div className="relative -mt-1 h-[calc(100dvh-76px)] overflow-hidden bg-[#EAF2FC]">
       <div
         className="absolute inset-0"
         style={{
@@ -178,10 +179,15 @@ export function DuriExploreMapPage() {
             </div>
           </Link>
         ) : (
-          <div className="mt-4 rounded-[20px] bg-[#F5F9FF] px-4 py-6 text-center">
-            <p className="text-[13px] font-black text-[#243C8F]">지도에 표시할 장소가 없어요</p>
-            <p className="mt-1 text-[11px] font-bold text-[#8CAADA]">검색어나 필터를 바꿔 보세요.</p>
-          </div>
+          <EmptyState
+            icon={MapPin}
+            compact
+            className="mt-4 bg-[#F5F9FF] shadow-none"
+            title="지도에 표시할 장소가 없어요"
+            description="검색어나 필터를 바꿔 보세요."
+            actionLabel="검색 조건 초기화"
+            onAction={() => setSearchParams(new URLSearchParams(), { replace: true })}
+          />
         )}
       </section>
     </div>

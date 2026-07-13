@@ -224,7 +224,7 @@ export function createDemoData(): DuriDomainState {
   ];
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     currentUserId: DEMO_CURRENT_USER_ID,
     activeTripId: trip.id,
     usersById: Object.fromEntries(users.map((user) => [user.id, user])),

@@ -1,11 +1,11 @@
 import { Check, GripVertical, Plus, Search, Sparkles, UserRound } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { useDraggable } from "@dnd-kit/react";
 import type { FilterKey } from "../data/workspace";
 import { formatScheduleDate } from "../utils/schedule";
 import type { CandidateView, ItineraryView } from "./workspaceViewModels";
 import type { WorkspaceDragData } from "./workspaceDnd";
+import { EmptyState } from "./EmptyState";
 
 export type CandidateSheetState = "collapsed" | "half" | "expanded";
 
@@ -101,10 +101,16 @@ export function CandidateBottomSheet({
             {visibleCandidates.length ? visibleCandidates.map((view) => (
               <CandidateRow key={view.place.id} view={view} schedule={schedule} tripDates={tripDates} dragDisabled={dragDisabled} onQuickAdd={() => onQuickAdd(view)} />
             )) : (
-              <div className="rounded-[20px] bg-[#F7FBFF] px-4 py-6 text-center">
-                <p className="text-[13px] font-black text-[#213D90]">{candidates.length ? "검색 결과가 없어요." : "아직 후보 장소가 없어요."}</p>
-                {!candidates.length ? <Link to="/explore" className="mt-3 inline-flex h-10 items-center justify-center rounded-[15px] bg-[#4388FF] px-4 text-[12px] font-black text-white">장소 탐색하기</Link> : null}
-              </div>
+              <EmptyState
+                icon={candidates.length ? Search : Plus}
+                compact
+                className="bg-[#F7FBFF] shadow-none"
+                title={candidates.length ? "검색 결과가 없어요." : "아직 후보 장소가 없어요."}
+                description={candidates.length ? "검색어나 필터를 초기화해 보세요." : "탐색에서 함께 검토할 장소를 먼저 담아보세요."}
+                actionLabel={candidates.length ? "검색 조건 초기화" : "장소 탐색하기"}
+                actionTo={candidates.length ? undefined : "/explore"}
+                onAction={candidates.length ? () => { setQuery(""); onFilterChange("전체"); } : undefined}
+              />
             )}
           </div>
         </>

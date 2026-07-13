@@ -1,6 +1,7 @@
 import { Check, MapPin, Plus, Users, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { EntityId, Region, TripRoom } from "../domain";
+import { useDialogBehavior } from "../hooks/useDialogBehavior";
 import { formatTripDateRange } from "../utils/formatters";
 
 type TripSelectionSheetProps = {
@@ -18,6 +19,7 @@ export function TripSelectionSheet({
   onClose,
   onSelect,
 }: TripSelectionSheetProps) {
+  useDialogBehavior(onClose);
   return (
     <div className="absolute inset-0 z-[70] flex items-end bg-[#19336A]/28 backdrop-blur-[2px]">
       <button type="button" onClick={onClose} className="absolute inset-0" aria-label="여행방 선택 닫기" />

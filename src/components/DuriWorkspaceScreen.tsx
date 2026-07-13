@@ -106,6 +106,13 @@ export function DuriWorkspaceScreen({ tripId }: { tripId: string }) {
     if (collisionTimer.current) window.clearTimeout(collisionTimer.current);
     if (analysisTimer.current) window.clearTimeout(analysisTimer.current);
   }, []);
+  useEffect(() => {
+    if (!editor) return;
+    const targetStillExists = editor.mode === "edit"
+      ? (itinerary ?? []).some((item) => item.id === editor.view.item.id)
+      : (candidates ?? []).some((candidate) => candidate.placeId === editor.candidate.place.id);
+    if (!targetStillExists) setEditor(undefined);
+  }, [candidates, editor, itinerary]);
 
   const companions = useMemo(
     () => trip?.members.flatMap((member) => (usersById[member.userId] ? [usersById[member.userId]] : [])) ?? [],
@@ -436,8 +443,8 @@ export function DuriWorkspaceScreen({ tripId }: { tripId: string }) {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <main className="h-screen overflow-hidden bg-[#D5E6FF] px-3 py-3 text-[#243C8F]">
-        <div className="relative mx-auto flex h-[calc(100vh-24px)] w-full max-w-[430px] flex-col overflow-hidden rounded-[42px] bg-[#EFF5FF] shadow-2xl shadow-[#7897D8]/35">
+      <main className="h-dvh overflow-hidden bg-[#D5E6FF] px-3 py-3 text-[#243C8F]">
+        <div className="relative mx-auto flex h-[calc(100dvh-24px)] w-full max-w-[430px] flex-col overflow-hidden rounded-[42px] bg-[#EFF5FF] shadow-2xl shadow-[#7897D8]/35">
           <div className="shrink-0 space-y-2 px-4 pt-3">
             <PhoneStatusBar />
             <WorkspaceHeader room={trip} companions={companions} regionName={regionsById[trip.regionId]?.name ?? "지역 미정"} onOpenAnalysis={() => { setCandidateSheetState("collapsed"); setActiveTab("analysis"); }} />

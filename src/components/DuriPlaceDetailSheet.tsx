@@ -26,7 +26,7 @@ export function DuriPlaceDetailSheet({
   if (!place) return null;
 
   return (
-    <div className="absolute inset-x-3 bottom-3 z-50 overflow-hidden rounded-[32px] bg-white shadow-[0_22px_44px_rgba(36,60,143,0.28)]">
+    <div role="dialog" aria-modal="true" aria-labelledby="place-detail-title" className="absolute inset-x-3 bottom-3 z-50 overflow-hidden rounded-[32px] bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_22px_44px_rgba(36,60,143,0.28)]">
       <div className="mx-auto mt-3 h-1.5 w-12 rounded-full bg-[#D8E6F8]" />
       <button
         type="button"
@@ -57,7 +57,7 @@ export function DuriPlaceDetailSheet({
                 </span>
               ))}
             </div>
-            <h2 className="truncate text-[24px] font-black text-[#243C8F]">{place.name}</h2>
+            <h2 id="place-detail-title" className="truncate text-[24px] font-black text-[#243C8F]">{place.name}</h2>
             <p className="mt-1 flex items-center gap-1.5 text-[13px] font-bold text-[#88A8D8]">
               <MapPin size={15} />
               {place.address}

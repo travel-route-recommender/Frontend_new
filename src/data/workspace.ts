@@ -23,8 +23,8 @@ export const candidateFilters: FilterKey[] = [
 ];
 
 export const bottomTabs: BottomTab[] = [
-  { label: "홈", icon: Home },
-  { label: "탐색", icon: Compass },
-  { label: "여행방", icon: Layers3, active: true },
-  { label: "마이페이지", icon: UserRound },
+  { label: "홈", icon: Home, to: "/" },
+  { label: "탐색", icon: Compass, to: "/explore" },
+  { label: "여행방", icon: Layers3, to: "/trips", active: true },
+  { label: "마이페이지", icon: UserRound, to: "/mypage" },
 ];

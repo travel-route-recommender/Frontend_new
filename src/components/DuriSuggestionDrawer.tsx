@@ -4,8 +4,10 @@ import type { ItineraryItem, Place, TripCandidate } from "../domain";
 import type { AnalysisIssue } from "../features/duri-analysis";
 import { previewSuggestion } from "../features/duri-suggestions";
 import type { DuriSuggestion, ScheduleChangePreview, ScheduleChangeState } from "../features/duri-suggestions";
+import { useDialogBehavior } from "../hooks/useDialogBehavior";
 import { getEndTime, sortItineraryItemsByDateAndTime } from "../utils/schedule";
 import { DuriSuggestionCard } from "./DuriSuggestionCard";
+import { EmptyState } from "./EmptyState";
 
 type DuriSuggestionDrawerProps = {
   suggestions: DuriSuggestion[];
@@ -101,10 +103,12 @@ function SuggestionPreview({ suggestion, itinerary, tripDates, candidates, place
 }
 
 export function DuriSuggestionDrawer({ suggestions, itinerary, tripDates, candidates, placesById, issuesById, applyingSuggestionId, onApply, onHide, onClose }: DuriSuggestionDrawerProps) {
+  useDialogBehavior(onClose);
   const [selected, setSelected] = useState<DuriSuggestion>();
   return (
     <div className="absolute inset-0 z-[95] flex items-end bg-[#17336A]/35" role="dialog" aria-modal="true" aria-label="두리 제안">
-      <section className="flex max-h-[88%] w-full flex-col rounded-t-[30px] bg-[#F4F8FF] px-4 pb-6 pt-4 shadow-[0_-16px_38px_rgba(36,60,143,0.2)]">
+      <button type="button" onClick={onClose} className="absolute inset-0" aria-label="두리 제안 닫기" />
+      <section className="relative z-10 flex max-h-[88%] w-full flex-col rounded-t-[30px] bg-[#F4F8FF] px-4 pb-[max(24px,env(safe-area-inset-bottom))] pt-4 shadow-[0_-16px_38px_rgba(36,60,143,0.2)]">
         <div className="mx-auto mb-3 h-1.5 w-11 rounded-full bg-[#C8D9F1]" />
         <header className="flex items-start justify-between gap-3">
           <div>
@@ -133,11 +137,13 @@ export function DuriSuggestionDrawer({ suggestions, itinerary, tripDates, candid
               ))}
             </div>
           ) : (
-            <div className="rounded-[24px] bg-white px-5 py-9 text-center">
-              <Sparkles size={26} className="mx-auto text-[#8BB2EC]" />
-              <p className="mt-3 text-[14px] font-black text-[#213D90]">지금 바로 적용할 새 제안이 없어요</p>
-              <p className="mt-1 text-[10px] font-bold text-[#7898CE]">일정을 바꾸면 현재 상태에 맞춰 다시 계산해요.</p>
-            </div>
+            <EmptyState
+              icon={Sparkles}
+              title="지금 바로 적용할 새 제안이 없어요"
+              description="일정을 바꾸면 현재 상태에 맞춰 다시 계산해요."
+              actionLabel="일정 다시 보기"
+              onAction={onClose}
+            />
           )}
         </div>
 

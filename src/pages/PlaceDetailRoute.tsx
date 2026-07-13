@@ -6,6 +6,7 @@ import { ActionToast } from "../components/ActionToast";
 import { DuriExploreListPage } from "../components/DuriExploreListPage";
 import { DuriPlaceDetailSheet } from "../components/DuriPlaceDetailSheet";
 import { TripSelectionSheet } from "../components/TripSelectionSheet";
+import { useDialogBehavior } from "../hooks/useDialogBehavior";
 import { selectActiveTripForCurrentUser, selectPlanningTripsForCurrentUser } from "../store/selectors";
 import { useDuriStore } from "../store/useDuriStore";
 
@@ -46,12 +47,6 @@ export function PlaceDetailRoute() {
     : undefined;
   const saved = Boolean(place && (savedPlaceIds ?? []).includes(place.id));
 
-  useEffect(() => {
-    if (!toast) return;
-    const timeoutId = window.setTimeout(() => setToast(undefined), 2600);
-    return () => window.clearTimeout(timeoutId);
-  }, [toast]);
-
   const closeSheet = () => {
     if (routeState?.fromDuri) {
       navigate(-1);
@@ -60,6 +55,14 @@ export function PlaceDetailRoute() {
 
     navigate("/explore");
   };
+
+  useDialogBehavior(closeSheet, !tripSelectionOpen);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timeoutId = window.setTimeout(() => setToast(undefined), 2600);
+    return () => window.clearTimeout(timeoutId);
+  }, [toast]);
 
   const addPlaceToTrip = (tripId: string) => {
     const trip = eligibleTrips.find((item) => item.id === tripId);

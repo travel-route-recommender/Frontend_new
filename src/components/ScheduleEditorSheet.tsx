@@ -6,6 +6,7 @@ import {
   SLOT_MINUTES,
 } from "../data/workspaceSchedule";
 import type { ItineraryMutationResult } from "../store/useDuriStore";
+import { useDialogBehavior } from "../hooks/useDialogBehavior";
 import { formatDuration } from "../utils/formatters";
 import { formatScheduleDate, getEndTime } from "../utils/schedule";
 
@@ -46,6 +47,7 @@ export function ScheduleEditorSheet({
   onSave,
   onDelete,
 }: ScheduleEditorSheetProps) {
+  useDialogBehavior(onClose);
   const [value, setValue] = useState(initialValue);
   const [error, setError] = useState<string>();
   const [confirmDelete, setConfirmDelete] = useState(false);
