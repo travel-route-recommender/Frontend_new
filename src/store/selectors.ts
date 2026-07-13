@@ -39,12 +39,28 @@ export const selectActiveTripForCurrentUser = (state: DuriState) => {
   const trip = selectActiveTrip(state);
   return trip?.members.some((member) => member.userId === state.currentUserId) ? trip : undefined;
 };
-export const selectSavedPlaceIdsForCurrentUser = (state: DuriState) =>
-  state.savedPlaceIdsByUserId[state.currentUserId] ?? emptyEntityIds;
+export const selectSavedPlaceIdsForCurrentUser = (state: DuriState) => {
+  const savedIds = state.savedPlaceIdsByUserId?.[state.currentUserId];
+  return Array.isArray(savedIds) ? savedIds : emptyEntityIds;
+};
 export const selectIsPlaceSavedByCurrentUser = (state: DuriState, placeId: EntityId) =>
   selectSavedPlaceIdsForCurrentUser(state).includes(placeId);
+export const selectEligibleTripsForCandidate = selectPlanningTripsForCurrentUser;
 export const selectIsPlaceCandidateForTrip = (state: DuriState, tripId: EntityId, placeId: EntityId) =>
   (state.candidatesByTripId[tripId] ?? []).some((candidate) => candidate.placeId === placeId);
+export const selectIsPlaceCandidateForActiveTrip = (state: DuriState, placeId: EntityId) => {
+  const activeTrip = selectActiveTripForCurrentUser(state);
+  return Boolean(
+    activeTrip &&
+    activeTrip.status !== "completed" &&
+    selectIsPlaceCandidateForTrip(state, activeTrip.id, placeId),
+  );
+};
+export const selectScheduledPlacementForPlace = (state: DuriState, placeId: EntityId) => {
+  const activeTrip = selectActiveTripForCurrentUser(state);
+  if (!activeTrip || activeTrip.status === "completed") return undefined;
+  return (state.itineraryByTripId[activeTrip.id] ?? []).find((item) => item.placeId === placeId);
+};
 export const selectTripById = (state: DuriState, tripId: EntityId) => state.tripsById[tripId];
 export const selectTripMembers = (state: DuriState, tripId: EntityId) => {
   const trip = selectTripById(state, tripId);
@@ -108,8 +124,17 @@ export const selectTripPreferenceProgress = (state: DuriState, tripId: EntityId)
 };
 export const selectTripCandidates = (state: DuriState, tripId: EntityId) => state.candidatesByTripId[tripId] ?? [];
 export const selectTripItinerary = (state: DuriState, tripId: EntityId) => state.itineraryByTripId[tripId] ?? [];
-export const selectSavedPlacesForCurrentUser = (state: DuriState) =>
-  (state.savedPlaceIdsByUserId[state.currentUserId] ?? []).map((id) => state.placesById[id]).filter(Boolean);
+export const selectSavedPlacesForCurrentUser = (state: DuriState) => {
+  const seen = new Set<EntityId>();
+  return selectSavedPlaceIdsForCurrentUser(state).flatMap((placeId) => {
+    if (seen.has(placeId)) return [];
+    seen.add(placeId);
+    const place = state.placesById[placeId];
+    return place ? [place] : [];
+  });
+};
+export const selectSavedPlaceCountForCurrentUser = (state: DuriState) =>
+  selectSavedPlacesForCurrentUser(state).length;
 export const selectTripAnalysisInput = (state: DuriState, tripId: EntityId): DuriAnalysisInput | undefined => {
   const trip = state.tripsById[tripId];
   if (!trip) return undefined;

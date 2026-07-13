@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { DuriWorkspaceScreen } from "../components/DuriWorkspaceScreen";
+import { SavedPlacesPage } from "../components/SavedPlacesPage";
 import { SimpleWorkspacePage } from "../components/SimpleWorkspacePage";
 import { TripListPage } from "../components/TripListPage";
 import { selectTripStats } from "../store/selectors";
@@ -58,25 +59,7 @@ export function DuriPage() {
 }
 
 export function SavedPage() {
-  const savedCount = useDuriStore((state) => state.savedPlaceIdsByUserId[state.currentUserId]?.length ?? 0);
-  const { stats } = useActiveTripSummary();
-  return (
-    <SimpleWorkspacePage
-      eyebrow="내 여행지"
-      title={`저장한 장소 ${savedCount}곳`}
-      description="부산 여행방에 담을 후보를 다시 확인해요."
-      primaryLabel="지도에서 보기"
-      secondaryLabel="장소 더 찾기"
-      icon="saved"
-      primaryTo="/explore/map"
-      stats={[
-        ["저장 장소", `${savedCount}개`],
-        ["후보 장소", `${stats.candidateCount}개`],
-        ["일정 반영", `${stats.scheduledCount}개`],
-        ["미배치", `${stats.unplannedCount}개`],
-      ]}
-    />
-  );
+  return <SavedPlacesPage />;
 }
 
 export function MyPage() {

@@ -170,7 +170,8 @@ export const useDuriStore = create<DuriState>()(
         set((state) => {
           const targetUserId = userId ?? state.currentUserId;
           if (!state.placesById[placeId] || !state.usersById[targetUserId]) return state;
-          const currentIds = state.savedPlaceIdsByUserId[targetUserId] ?? [];
+          const storedIds = state.savedPlaceIdsByUserId?.[targetUserId];
+          const currentIds = Array.isArray(storedIds) ? storedIds : [];
           const nextIds = currentIds.includes(placeId)
             ? currentIds.filter((id) => id !== placeId)
             : [...currentIds, placeId];

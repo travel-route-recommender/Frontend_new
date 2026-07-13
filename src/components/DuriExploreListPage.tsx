@@ -1,8 +1,7 @@
-import { ArrowLeft, CalendarDays, Heart, LayoutGrid, Map as MapIcon, MapPin, Search, SlidersHorizontal, Star } from "lucide-react";
+import { ArrowLeft, CalendarDays, Heart, LayoutGrid, Map as MapIcon, Search, SlidersHorizontal } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import type { Place } from "../domain";
 import { exploreFilters } from "../data/travelPages";
 import { selectActiveTripForCurrentUser, selectSavedPlaceIdsForCurrentUser } from "../store/selectors";
 import { useDuriStore } from "../store/useDuriStore";
@@ -14,6 +13,7 @@ import {
 } from "../utils/explore";
 import { formatTripDateRange } from "../utils/formatters";
 import { ActionToast } from "./ActionToast";
+import { PlaceCard } from "./PlaceCard";
 
 export function DuriExploreListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -135,7 +135,7 @@ export function DuriExploreListPage() {
             {filteredPlaces.map((place) => {
               const candidate = candidateByPlaceId.get(place.id);
               return (
-                <ExplorePlaceCard
+                <PlaceCard
                   key={place.id}
                   place={place}
                   saved={savedPlaceIds.includes(place.id)}
@@ -172,46 +172,4 @@ export function DuriExploreListPage() {
 
 function Badge({ icon, label }: { icon: ReactNode; label: string }) {
   return <span className="flex items-center gap-1.5 rounded-full bg-white/18 px-3 py-2 text-[12px] font-black text-white backdrop-blur">{icon}{label}</span>;
-}
-
-function ExplorePlaceCard({
-  place,
-  saved,
-  candidateStatus,
-  onToggleSaved,
-}: {
-  place: Place;
-  saved: boolean;
-  candidateStatus?: string;
-  onToggleSaved: () => void;
-}) {
-  return (
-    <article className="relative overflow-hidden rounded-[22px] bg-white text-left shadow-[0_8px_18px_rgba(79,134,247,0.12)]">
-      <Link to={`/places/${place.id}`} state={{ fromDuri: true }} className="block">
-        <div
-          className="relative h-[108px] bg-cover bg-center"
-          style={{ backgroundImage: `linear-gradient(180deg, rgba(20,39,95,0.08), rgba(20,39,95,0.22)), url(${place.imageUrl})` }}
-        >
-          {candidateStatus ? <span className="absolute bottom-2 left-2 rounded-full bg-[#4388FF] px-2.5 py-1 text-[9px] font-black text-white">{candidateStatus}</span> : null}
-        </div>
-        <div className="px-3 pb-3 pt-2.5">
-          <h3 className="truncate text-[14px] font-black text-[#243C8F]">{place.name}</h3>
-          <p className="mt-0.5 truncate text-[11px] font-bold text-[#A0BCE6]">{place.category}</p>
-          <div className="mt-2 flex items-center justify-between">
-            <span className="flex items-center gap-1 text-[11px] font-bold text-[#8CB9EF]"><MapPin size={12} />{place.distanceLabel}</span>
-            <span className="flex items-center gap-1 text-[11px] font-black text-[#243C8F]"><Star size={12} className="fill-[#FFD84D] text-[#FFD84D]" />{place.rating.toFixed(1)}</span>
-          </div>
-        </div>
-      </Link>
-      <button
-        type="button"
-        onClick={onToggleSaved}
-        aria-label={saved ? `${place.name} 저장 해제` : `${place.name} 저장하기`}
-        aria-pressed={saved}
-        className="absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-white/92 text-[#4388FF]"
-      >
-        <Heart size={16} className={saved ? "fill-[#4388FF]" : ""} />
-      </button>
-    </article>
-  );
 }
