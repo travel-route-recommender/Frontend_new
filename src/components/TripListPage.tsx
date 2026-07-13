@@ -20,11 +20,12 @@ export function TripListPage() {
   const regionsById = useDuriStore((state) => state.regionsById);
   const candidatesByTripId = useDuriStore((state) => state.candidatesByTripId);
   const itineraryByTripId = useDuriStore((state) => state.itineraryByTripId);
+  const preferenceResultsByUserId = useDuriStore((state) => state.preferenceResultsByUserId);
 
   const statsByTripId = useMemo(() => {
-    const state = { ...useDuriStore.getState(), candidatesByTripId, itineraryByTripId };
+    const state = { ...useDuriStore.getState(), candidatesByTripId, itineraryByTripId, preferenceResultsByUserId };
     return Object.fromEntries([...planningTrips, ...completedTrips].map((trip) => [trip.id, selectTripStats(state, trip.id)]));
-  }, [candidatesByTripId, completedTrips, itineraryByTripId, planningTrips]);
+  }, [candidatesByTripId, completedTrips, itineraryByTripId, planningTrips, preferenceResultsByUserId]);
 
   return (
     <div className="overflow-x-hidden px-5 pb-32 pt-2">

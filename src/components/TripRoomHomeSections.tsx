@@ -6,6 +6,7 @@ import {
   CalendarDays,
   CalendarRange,
   Check,
+  CheckCircle2,
   Clock3,
   HeartHandshake,
   MapPin,
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { TripRoom, User } from "../domain";
+import type { TripPreferenceProgress } from "../store/selectors";
 import { formatTripDateRange, formatTripStatus } from "../utils/formatters";
 
 export type CandidatePreviewView = {
@@ -136,6 +138,56 @@ export function RoomStatsGrid({
           </article>
         ))}
       </div>
+    </section>
+  );
+}
+
+export function TripPreferenceStatusCard({ progress }: { progress: TripPreferenceProgress }) {
+  const currentMember = progress.members.find((member) => member.isCurrentUser);
+  const statusLabel = progress.status === "completed" ? "응답 완료" : progress.status === "in-progress" ? "진행 중" : "시작 전";
+  const statusClass = progress.status === "completed"
+    ? "bg-[#E7F4EE] text-[#39836E]"
+    : progress.status === "in-progress"
+      ? "bg-[#FFF3D8] text-[#8A6614]"
+      : "bg-[#EEF4FC] text-[#7595C4]";
+  const percent = progress.totalCount ? Math.round((progress.completedCount / progress.totalCount) * 100) : 0;
+
+  return (
+    <section>
+      <SectionTitle title="동행자 여행 성향" />
+      <article className="rounded-[26px] bg-white p-5 shadow-[0_9px_20px_rgba(79,134,247,0.1)]">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[16px] font-black text-[#243C8F]">{progress.totalCount}명 중 {progress.completedCount}명이 응답했어요.</p>
+            <p className="mt-1 text-[10px] font-bold text-[#8CAADA]">응답 전이어도 워크스페이스에서 일정을 함께 만들 수 있어요.</p>
+          </div>
+          <span className={`shrink-0 rounded-full px-3 py-1.5 text-[9px] font-black ${statusClass}`}>{statusLabel}</span>
+        </div>
+
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#E1ECFA]" aria-label={`성향 응답 진행률 ${percent}%`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
+          <div className="h-full rounded-full bg-[#4388FF] transition-[width]" style={{ width: `${percent}%` }} />
+        </div>
+
+        <div className="mt-4 space-y-2">
+          {progress.members.map((member, index) => (
+            <div key={member.userId} className="flex items-center gap-3 rounded-[17px] bg-[#F7FAFF] px-3 py-3">
+              <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-[11px] font-black ${avatarTones[index % avatarTones.length]}`}>{member.initial}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2"><p className="truncate text-[12px] font-black text-[#243C8F]">{member.name}</p>{member.isCurrentUser ? <span className="rounded-full bg-[#EAF3FF] px-2 py-0.5 text-[8px] font-black text-[#4388FF]">나</span> : null}</div>
+              </div>
+              <span className={`inline-flex shrink-0 items-center gap-1 text-[9px] font-black ${member.completed ? "text-[#39836E]" : "text-[#9AAFD0]"}`}>
+                {member.completed ? <CheckCircle2 size={14} /> : <Clock3 size={14} />}{member.completed ? "응답 완료" : "응답 대기"}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {currentMember ? (
+          <Link to={currentMember.completed ? "/tests/personal/result" : "/tests/personal"} className="mt-4 flex h-11 items-center justify-center gap-1.5 rounded-[17px] bg-[#EEF5FF] text-[11px] font-black text-[#4388FF]">
+            {currentMember.completed ? "내 결과 보기" : "내 성향 테스트 하기"}<ArrowRight size={14} />
+          </Link>
+        ) : null}
+      </article>
     </section>
   );
 }

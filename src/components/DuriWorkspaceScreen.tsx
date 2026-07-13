@@ -180,7 +180,7 @@ export function DuriWorkspaceScreen({ tripId }: { tripId: string }) {
   const scheduledPlaces = candidateViews.filter((view) => scheduledPlaceIds.has(view.place.id)).length;
   const totalCandidates = candidateViews.length;
   const unplannedPlaces = Math.max(totalCandidates - scheduledPlaces, 0);
-  const completedPreferences = trip?.members.filter((member) => member.preferenceStatus === "completed").length ?? 0;
+  const completedPreferences = trip?.members.filter((member) => Boolean(preferenceResultsByUserId[member.userId])).length ?? 0;
   const readOnly = !trip || trip.status === "completed" || !trip.members.some((member) => member.userId === currentUserId);
 
   const dashboardMetrics = useMemo(

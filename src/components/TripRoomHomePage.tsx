@@ -11,10 +11,11 @@ import {
   RoomHomeHeader,
   RoomQuickActions,
   RoomStatsGrid,
+  TripPreferenceStatusCard,
   TripRoomNotFound,
 } from "./TripRoomHomeSections";
 import type { CandidatePreviewView, SchedulePreviewView } from "./TripRoomHomeSections";
-import { selectTripAnalysis, selectTripStats } from "../store/selectors";
+import { selectTripAnalysis, selectTripPreferenceProgress, selectTripStats } from "../store/selectors";
 import { useDuriStore } from "../store/useDuriStore";
 import { formatDayLabel } from "../utils/formatters";
 
@@ -51,8 +52,12 @@ export function TripRoomHomePage() {
     [trip, usersById],
   );
   const stats = useMemo(
-    () => selectTripStats({ ...useDuriStore.getState(), candidatesByTripId, itineraryByTripId }, tripId),
-    [candidatesByTripId, itineraryByTripId, tripId],
+    () => selectTripStats({ ...useDuriStore.getState(), candidatesByTripId, itineraryByTripId, preferenceResultsByUserId, usersById }, tripId),
+    [candidatesByTripId, itineraryByTripId, preferenceResultsByUserId, tripId, usersById],
+  );
+  const preferenceProgress = useMemo(
+    () => selectTripPreferenceProgress({ ...useDuriStore.getState(), preferenceResultsByUserId, usersById }, tripId),
+    [preferenceResultsByUserId, tripId, trip, usersById],
   );
   const analysis = useMemo(
     () =>
@@ -167,6 +172,7 @@ export function TripRoomHomePage() {
           to={`/trips/${trip.id}/workspace`}
         />
 
+        <TripPreferenceStatusCard progress={preferenceProgress} />
         <RoomStatsGrid stats={stats} />
         <RoomQuickActions tripId={trip.id} onExplore={activateTrip} />
         <CandidatePlacesPreview candidates={candidatePreviews} onExplore={activateTrip} />

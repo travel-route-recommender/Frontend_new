@@ -13,9 +13,10 @@ function useActiveTripSummary() {
   const candidatesByTripId = useDuriStore((state) => state.candidatesByTripId);
   const itineraryByTripId = useDuriStore((state) => state.itineraryByTripId);
   const placesById = useDuriStore((state) => state.placesById);
+  const preferenceResultsByUserId = useDuriStore((state) => state.preferenceResultsByUserId);
   const stats = useMemo(
-    () => selectTripStats({ ...useDuriStore.getState(), candidatesByTripId, itineraryByTripId }, activeTripId),
-    [activeTripId, candidatesByTripId, itineraryByTripId],
+    () => selectTripStats({ ...useDuriStore.getState(), candidatesByTripId, itineraryByTripId, preferenceResultsByUserId }, activeTripId),
+    [activeTripId, candidatesByTripId, itineraryByTripId, preferenceResultsByUserId],
   );
   const itineraryLines = useMemo(() => {
     if (!trip) return [];

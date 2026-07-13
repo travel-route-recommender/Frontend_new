@@ -49,6 +49,62 @@ export const selectTripMembers = (state: DuriState, tripId: EntityId) => {
   const trip = selectTripById(state, tripId);
   return trip?.members.map((member) => state.usersById[member.userId]).filter(Boolean) ?? [];
 };
+
+export type TripPreferenceMemberView = {
+  userId: EntityId;
+  name: string;
+  initial: string;
+  completed: boolean;
+  isCurrentUser: boolean;
+};
+
+export type TripPreferenceProgress = {
+  completedCount: number;
+  totalCount: number;
+  status: "not-started" | "in-progress" | "completed";
+  members: TripPreferenceMemberView[];
+  completedMembers: TripPreferenceMemberView[];
+  pendingMembers: TripPreferenceMemberView[];
+};
+
+export const selectTripPreferenceResponseStatus = (state: DuriState, tripId: EntityId) => {
+  const trip = selectTripById(state, tripId);
+  return trip?.members.map((member) => {
+    const user = state.usersById[member.userId];
+    return {
+      userId: member.userId,
+      name: user?.name ?? "참여자",
+      initial: user?.initial ?? "?",
+      completed: Boolean(state.preferenceResultsByUserId[member.userId]),
+      isCurrentUser: member.userId === state.currentUserId,
+    };
+  }) ?? [];
+};
+
+export const selectCompletedPreferenceMemberIds = (state: DuriState, tripId: EntityId) =>
+  selectTripPreferenceResponseStatus(state, tripId).flatMap((member) => member.completed ? [member.userId] : []);
+
+export const selectPendingPreferenceMembers = (state: DuriState, tripId: EntityId) =>
+  selectTripPreferenceResponseStatus(state, tripId).filter((member) => !member.completed);
+
+export const selectTripPreferenceProgress = (state: DuriState, tripId: EntityId): TripPreferenceProgress => {
+  const members = selectTripPreferenceResponseStatus(state, tripId);
+  const completedMembers = members.filter((member) => member.completed);
+  const pendingMembers = members.filter((member) => !member.completed);
+  const status = members.length > 0 && completedMembers.length === members.length
+    ? "completed"
+    : completedMembers.length > 0
+      ? "in-progress"
+      : "not-started";
+  return {
+    completedCount: completedMembers.length,
+    totalCount: members.length,
+    status,
+    members,
+    completedMembers,
+    pendingMembers,
+  };
+};
 export const selectTripCandidates = (state: DuriState, tripId: EntityId) => state.candidatesByTripId[tripId] ?? [];
 export const selectTripItinerary = (state: DuriState, tripId: EntityId) => state.itineraryByTripId[tripId] ?? [];
 export const selectSavedPlacesForCurrentUser = (state: DuriState) =>
@@ -94,8 +150,9 @@ export function selectTripStats(state: DuriState, tripId: EntityId): TripStats {
   const scheduledCandidateIds = new Set(
     selectTripItinerary(state, tripId).flatMap((item) => (item.placeId && candidateIds.has(item.placeId) ? [item.placeId] : [])),
   );
-  const preferenceTargetCount = trip?.members.length ?? 0;
-  const completedPreferenceCount = trip?.members.filter((member) => member.preferenceStatus === "completed").length ?? 0;
+  const preferenceProgress = selectTripPreferenceProgress(state, tripId);
+  const preferenceTargetCount = preferenceProgress.totalCount;
+  const completedPreferenceCount = preferenceProgress.completedCount;
   return {
     candidateCount: candidates.length,
     scheduledCount: scheduledCandidateIds.size,
