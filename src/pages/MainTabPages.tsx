@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { DuriWorkspaceScreen } from "../components/DuriWorkspaceScreen";
+import { MyPageDashboard } from "../components/MyPageDashboard";
 import { SavedPlacesPage } from "../components/SavedPlacesPage";
 import { SimpleWorkspacePage } from "../components/SimpleWorkspacePage";
 import { TripListPage } from "../components/TripListPage";
@@ -63,20 +64,7 @@ export function SavedPage() {
 }
 
 export function MyPage() {
-  const currentUser = useDuriStore((state) => state.usersById[state.currentUserId]);
-  const preference = useDuriStore((state) => state.preferenceResultsByUserId[state.currentUserId]);
-  return (
-    <SimpleWorkspacePage
-      eyebrow="마이페이지"
-      title={`${currentUser?.name ?? "사용자"}님의 여행 취향`}
-      description={`${preference?.profileType ?? "성향 진단 전"} · ${(preference?.traits ?? []).join("와 ")} 코스를 선호해요.`}
-      primaryLabel={preference ? "테스트 결과 보기" : "개인 테스트 시작"}
-      secondaryLabel="프로필 편집"
-      icon="profile"
-      primaryTo={preference ? "/tests/personal/result" : "/tests/personal"}
-      stats={[]}
-    />
-  );
+  return <MyPageDashboard />;
 }
 
 export function TripWorkspaceRoute() {

@@ -34,6 +34,19 @@ export const selectCompletedTripsForCurrentUser = (state: DuriState) =>
     .sort((left, right) => getSortableDate(right.endDate, Number.NEGATIVE_INFINITY) - getSortableDate(left.endDate, Number.NEGATIVE_INFINITY));
 
 export const selectCurrentUser = (state: DuriState) => state.usersById[state.currentUserId];
+export const selectCurrentUserPreferenceResult = (state: DuriState) =>
+  state.preferenceResultsByUserId[state.currentUserId];
+export const selectCurrentUserTripSummary = (state: DuriState) => {
+  const planningCount = selectPlanningTripsForCurrentUser(state).length;
+  const completedCount = selectCompletedTripsForCurrentUser(state).length;
+  return {
+    planningCount,
+    completedCount,
+    totalCount: planningCount + completedCount,
+  };
+};
+export const selectCurrentUserNextTrip = (state: DuriState) =>
+  selectPlanningTripsForCurrentUser(state)[0];
 export const selectActiveTrip = (state: DuriState) => state.tripsById[state.activeTripId];
 export const selectActiveTripForCurrentUser = (state: DuriState) => {
   const trip = selectActiveTrip(state);
